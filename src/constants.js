@@ -2,7 +2,17 @@ const asset = name => `${import.meta.env.BASE_URL}assets/${name}`;
 
 export const STORAGE_KEY = 'classFishTank.v1';
 export const SESSION_KEY = 'classFishTank.unlocked';
-export const TEACHER_PIN = import.meta.env.VITE_TEACHER_PIN || '0000';
+/* global __PIN_HASH__, __PIN_SALT__ */
+// Filled in at build time from the TEACHER_PIN secret (see vite.config.js).
+export const PIN_HASH = __PIN_HASH__;
+export const PIN_SALT = __PIN_SALT__;
+
+export async function pinMatches(entry) {
+  const bytes = new TextEncoder().encode(PIN_SALT + entry);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  return hex === PIN_HASH;
+}
 
 // Every fish picture is blue-ish, so colors are applied as a hue shift from 210°.
 export const TYPES = [

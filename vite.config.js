@@ -1,8 +1,28 @@
+import { createHash } from 'node:crypto';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Relative base so the build works from any folder (GitHub Pages, a USB stick, etc.)
-export default defineConfig({
-  base: './',
-  plugins: [react()],
+// The teacher PIN comes from the TEACHER_PIN environment variable (a GitHub Actions secret in CI).
+// Only its salted SHA-256 hash goes into the bundle, so the PIN itself never appears in the repo or the site.
+const PIN_SALT = 'classFishTank:';
+const DEV_PIN = '0000';
+
+export default defineConfig(({ command }) => {
+  let pin = process.env.TEACHER_PIN;
+  if (!pin) {
+    if (command === 'build' && process.env.CI) throw new Error('TEACHER_PIN is not set. Add it as a repository secret.');
+    pin = DEV_PIN;
+  }
+  if (!/^\d{4}$/.test(pin)) throw new Error('TEACHER_PIN must be exactly 4 digits.');
+  const hash = createHash('sha256').update(PIN_SALT + pin).digest('hex');
+
+  return {
+    // Relative base so the build works from any folder (GitHub Pages, a USB stick, etc.)
+    base: './',
+    plugins: [react()],
+    define: {
+      __PIN_HASH__: JSON.stringify(hash),
+      __PIN_SALT__: JSON.stringify(PIN_SALT),
+    },
+  };
 });

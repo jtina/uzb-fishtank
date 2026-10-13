@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { TEACHER_PIN } from '../constants.js';
+import { pinMatches } from '../constants.js';
 import LangSwitch from './LangSwitch.jsx';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 const SHAKE = [-12, 12, -9, 9, -5, 5, 0];
 
-// Keeps students from casually opening the aquarium. The PIN ships in the page source,
-// so this is not real security.
+// Keeps students from casually opening the aquarium. Only a hash of the PIN ships in the page,
+// but a 4-digit PIN checked in the browser can still be brute-forced, so this is not real security.
 export default function PinScreen({ L, lang, onLang, onUnlock }) {
   const [entry, setEntry] = useState('');
   const [error, setError] = useState('');
@@ -38,9 +38,11 @@ export default function PinScreen({ L, lang, onLang, onUnlock }) {
     setError('');
     if (next.length < 4) return;
     busy.current = true;
-    setTimeout(() => {
+    const check = pinMatches(next);
+    setTimeout(async () => {
+      const ok = await check.catch(() => false);
       busy.current = false;
-      if (next === TEACHER_PIN) onUnlock(); else fail();
+      if (ok) onUnlock(); else fail();
     }, 150);
   };
 
