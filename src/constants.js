@@ -1,4 +1,6 @@
-const asset = name => `${import.meta.env.BASE_URL}assets/${name}`;
+// Absolute URLs: a relative url() inside a CSS variable resolves against the stylesheet
+// (dist/assets/), not the page, which broke the tank background in builds.
+const asset = name => new URL(`${import.meta.env.BASE_URL}assets/${name}`, document.baseURI).href;
 
 export const STORAGE_KEY = 'classFishTank.v1';
 export const SESSION_KEY = 'classFishTank.unlocked';
@@ -66,9 +68,6 @@ export const DECOR = [
   { k: 'star', swatch: '#F58A6E', img: asset('decor-star.png'), h: 56 },
 ];
 export const decorOf = k => DECOR.find(x => x.k === k) || {};
-export const DEFAULT_DECOR = [['seaweed', 5], ['rock', 14], ['chest', 28], ['shell', 40], ['coral', 55], ['seaweed', 68], ['cave', 84], ['seaweed', 95]];
-
-export const SEED_NAMES = ['Ava', 'Liam', 'Mia', 'Noah', 'Zoe', 'Eli', 'Lily', 'Leo', 'Ivy', 'Max', 'Nora', 'Owen', 'Ruby', 'Sam', 'Maya', 'Theo', 'Ella', 'Jack', 'Aria', 'Finn', 'Luna', 'Kai'];
 
 export const DEFAULT_MAX_FEED = 12;
 export function maxFeedOf(raw) {
