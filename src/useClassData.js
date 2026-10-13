@@ -163,10 +163,11 @@ export function useClassData() {
       write(p => api.saveDecor(p, next));
     },
     removeDecor: id => { setDecor(ds => ds.filter(x => x.id !== id)); write(p => api.deleteDecor(p, id)); },
-    moveLayer: (id, dir) => {
-      const a = dataRef.current.decor.slice(), i = a.findIndex(d => d.id === id), j = i + dir;
-      if (i < 0 || j < 0 || j >= a.length) return;
-      [a[i], a[j]] = [a[j], a[i]];
+    // Moves a decoration to position `to` in the drawing order (0 = back).
+    moveLayer: (id, to) => {
+      const a = dataRef.current.decor.slice(), i = a.findIndex(d => d.id === id);
+      if (i < 0 || to < 0 || to >= a.length || to === i) return;
+      a.splice(to, 0, a.splice(i, 1)[0]);
       setDecor(() => a);
       write(p => api.orderDecor(p, a.map(d => d.id)));
     },

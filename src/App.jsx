@@ -60,7 +60,7 @@ export default function App() {
     closeEdit();
   };
 
-  const moveLayer = (id, dir) => { cls.moveLayer(id, dir); setSelDecor(id); };
+  const moveLayer = (id, to) => { cls.moveLayer(id, to); setSelDecor(id); };
   const flipDecor = id => { cls.flipDecor(id); setSelDecor(id); };
   const removeDecor = id => { cls.removeDecor(id); setSelDecor(null); };
   const addDecor = kind => {

@@ -17,6 +17,7 @@ const Tank = forwardRef(function Tank(props, ref) {
   const { students, decor, decorating, focusId, selDecor, L, isEmpty } = props;
   const tankRef = useRef(null), fxRef = useRef(null);
   const fishEls = useRef(new Map());
+  const decorEls = useRef(new Map());
   const sim = useRef({}), pellets = useRef([]), hovered = useRef(null);
   const live = useRef(props);
   live.current = props;
@@ -179,6 +180,22 @@ const Tank = forwardRef(function Tank(props, ref) {
     props.onSelectDecor(item.id);
   };
 
+  const decorHeight = d => Math.round((decorOf(d.kind).h || 80) * (d.size || 1));
+  const selItem = decorating ? decor.find(d => d.id === selDecor) : null;
+
+  // New position in the drawing order for Front (dir 1) / Back (dir -1): just past the nearest decoration
+  // it actually overlaps, so every press makes a visible change. If nothing overlaps, one step.
+  const layerTarget = (id, dir) => {
+    const i = decor.findIndex(d => d.id === id), el = decorEls.current.get(id);
+    const r = el && el.getBoundingClientRect();
+    const overlaps = d => {
+      const o = decorEls.current.get(d.id), q = o && o.getBoundingClientRect();
+      return r && q && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top;
+    };
+    for (let j = i + dir; j >= 0 && j < decor.length; j += dir) if (overlaps(decor[j])) return j;
+    return i + dir;
+  };
+
   const stop = e => e.stopPropagation();
   const act = fn => e => { e.stopPropagation(); fn(); };
 
@@ -193,37 +210,53 @@ const Tank = forwardRef(function Tank(props, ref) {
       <div className="pebble" style={{ left: '66%', bottom: 12, width: 14, height: 8, background: 'var(--rock)' }} />
 
       {/* While a decoration is selected, decorations draw above the fish so its menu stays readable. */}
-      <div className="decor-layer" style={{ zIndex: decorating && selDecor ? 55 : 1 }}>
+      {/* stop: a press that starts on a decoration and ends on the overlay that just appeared is reported as a
+          click on this layer; without it the tank would treat it as a tap on empty water and deselect. */}
+      <div className="decor-layer" style={{ zIndex: decorating && selDecor ? 55 : 1 }} onClick={stop}>
         {decor.map((d, i) => {
-          const sel = decorating && selDecor === d.id, cat = decorOf(d.kind);
+          const cat = decorOf(d.kind);
           return (
             <div
               key={d.id}
-              className={'decor' + (decorating ? ' editable' : '') + (sel ? ' selected' : '')}
-              style={{ left: d.x + '%', zIndex: sel ? 999 : i + 1 }}
+              ref={el => { if (el) decorEls.current.set(d.id, el); else decorEls.current.delete(d.id); }}
+              className={'decor' + (decorating ? ' editable' : '')}
+              style={{ left: d.x + '%', zIndex: i + 1 }}
               onPointerDown={e => startDrag(d.id, e)}
               onClick={act(() => { if (selDecor !== d.id) props.onSelectDecor(d.id); })}
               onDoubleClick={act(() => props.onFlipDecor(d.id))}
             >
               <div style={{ transform: `scaleX(${d.flip ? -1 : 1})`, transition: 'transform .25s' }}>
-                {cat.img && <img src={cat.img} alt="" draggable="false" style={{ height: Math.round((cat.h || 80) * (d.size || 1)) }} />}
+                {cat.img && <img src={cat.img} alt="" draggable="false" style={{ height: decorHeight(d) }} />}
               </div>
-              {sel && (
-                <>
-                  <div className="decor-menu" onPointerDown={stop} onClick={stop} onDoubleClick={stop}>
-                    <button title={L.forward} aria-label={L.forward} onClick={act(() => props.onMoveLayer(d.id, 1))}>↑ {L.forwardShort}</button>
-                    <button title={L.backward} aria-label={L.backward} onClick={act(() => props.onMoveLayer(d.id, -1))}>↓ {L.backShort}</button>
-                    <button onClick={act(() => props.onFlipDecor(d.id))}>{L.flip}</button>
-                    <button className="danger" onClick={act(() => props.onRemoveDecor(d.id))}>{L.remove}</button>
-                    <div className="decor-menu-tip" />
-                  </div>
-                  <div className="handle right" onPointerDown={e => startResize(d, e, 1)} />
-                  <div className="handle left" onPointerDown={e => startResize(d, e, -1)} />
-                </>
-              )}
             </div>
           );
         })}
+
+        {/* The selected decoration stays at its real layer so Front / Back visibly change it. Its outline,
+            menu and handles sit on this overlay (an invisible copy of the same size) so they are never covered. */}
+        {selItem && (() => {
+          const d = selItem, i = decor.indexOf(d), cat = decorOf(d.kind);
+          return (
+            <div
+              className="decor decor-overlay"
+              style={{ left: d.x + '%', zIndex: decor.length + 10 }}
+              onPointerDown={e => startDrag(d.id, e)}
+              onClick={stop}
+              onDoubleClick={act(() => props.onFlipDecor(d.id))}
+            >
+              {cat.img && <img src={cat.img} alt="" draggable="false" style={{ height: decorHeight(d), visibility: 'hidden' }} />}
+              <div className="decor-menu" onPointerDown={stop} onClick={stop} onDoubleClick={stop}>
+                <button title={L.forward} aria-label={L.forward} disabled={i === decor.length - 1} onClick={act(() => props.onMoveLayer(d.id, layerTarget(d.id, 1)))}>↑ {L.forwardShort}</button>
+                <button title={L.backward} aria-label={L.backward} disabled={i === 0} onClick={act(() => props.onMoveLayer(d.id, layerTarget(d.id, -1)))}>↓ {L.backShort}</button>
+                <button onClick={act(() => props.onFlipDecor(d.id))}>{L.flip}</button>
+                <button className="danger" onClick={act(() => props.onRemoveDecor(d.id))}>{L.remove}</button>
+                <div className="decor-menu-tip" />
+              </div>
+              <div className="handle right" onPointerDown={e => startResize(d, e, 1)} />
+              <div className="handle left" onPointerDown={e => startResize(d, e, -1)} />
+            </div>
+          );
+        })()}
       </div>
 
       {focusId && <div className="focus-dim" />}
