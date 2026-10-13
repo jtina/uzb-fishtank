@@ -69,7 +69,7 @@ export const DECOR = [
 ];
 export const decorOf = k => DECOR.find(x => x.k === k) || {};
 
-export const DEFAULT_MAX_FEED = 12;
+export const DEFAULT_MAX_FEED = 50;
 export function maxFeedOf(raw) {
   const v = parseInt(raw, 10);
   return v >= 2 ? Math.min(v, 999) : DEFAULT_MAX_FEED;
