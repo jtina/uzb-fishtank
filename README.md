@@ -11,10 +11,12 @@ and it grows from **Little → Grown → Big**.
 - **Max size:** set how many feeds make a fish Big (it is Grown at half). **Reset sizes** sets every feed count to 0.
 - **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover, sound.
 - **PIN lock:** the app opens with a teacher PIN screen. It stays unlocked until the browser tab
-  is closed or **Lock** is pressed. Only a hash of the PIN is published, but a 4-digit PIN checked in the browser
-  can be brute-forced, so this stops students, not a determined adult.
+  is closed or **Lock** is pressed.
+- **Shared across devices:** with Supabase set up (below), every device shows the same class. Changes show up on
+  other devices within a few seconds (at most 15).
 
-Everything is saved in the browser's `localStorage` on that device.
+Students, feeds, decorations, the class title and the max size are shared. Language, look, names, sound and the
+open tab are each device's own choice.
 
 ## Development
 
@@ -26,12 +28,28 @@ npm run build    # static build in dist/
 
 The build uses relative paths, so `dist/` can be hosted on GitHub Pages or any static host.
 
-## Teacher PIN
+## Supabase setup (shared data + PIN)
 
-The PIN is never stored in this repo. It is read from the `TEACHER_PIN` environment variable at build time,
-and only its hash is put into the site.
+1. In your Supabase project, open **SQL Editor**, paste all of [`supabase/fishtank.sql`](supabase/fishtank.sql) and run it.
+   It only creates `fishtank_*` tables and functions.
+2. In the SQL Editor, run this on its own line with your PIN (don't save it in a file):
+   `select fishtank_set_pin('1234');`
+3. In Supabase → **Project Settings → API**, copy the **Project URL** and the **anon / publishable** key.
+   Never use the `service_role` / secret key here.
+4. In GitHub → **Settings → Secrets and variables → Actions**, add the secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`,
+   then re-run the "Deploy to GitHub Pages" workflow.
 
-- **GitHub Pages:** set a repository secret named `TEACHER_PIN` (4 digits) under
-  Settings → Secrets and variables → Actions. The deploy fails if it is missing. To change the PIN, update the
-  secret and re-run the "Deploy to GitHub Pages" workflow.
-- **Local:** `TEACHER_PIN=1234 npm run dev`. Without it, the local PIN is `0000`.
+The tables are locked to the public key. The app can only use the `fishtank_*` functions, and each one checks the PIN
+on the server, so the PIN is never in the page. After 10 wrong PINs from one address in 10 minutes, that address is
+blocked until the 10 minutes are up. To change the PIN, run `fishtank_set_pin` again. Every device then has to enter
+the new PIN.
+
+If a change can't be saved (no internet), a warning shows above the tank, and the device goes back to the shared
+data once the connection returns. Changes made while offline are not kept.
+
+## Without Supabase (local-only)
+
+If `SUPABASE_URL` / `SUPABASE_ANON_KEY` are not set, everything is saved only in that browser. The PIN then comes from
+the `TEACHER_PIN` environment variable at build time (a repository secret for GitHub Pages), and only its hash is put in
+the site. Locally: `TEACHER_PIN=1234 npm run dev`; without it, the local PIN is `0000`.
+To run locally against Supabase, put `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in a `.env.local` file.

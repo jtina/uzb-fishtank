@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { pinMatches } from '../constants.js';
 import LangSwitch from './LangSwitch.jsx';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'];
 const SHAKE = [-12, 12, -9, 9, -5, 5, 0];
+const ERRORS = { wrong_pin: 'wrongPin', too_many_attempts: 'tooMany', pin_not_set: 'pinNotSet', network: 'offline' };
 
-// Keeps students from casually opening the aquarium. Only a hash of the PIN ships in the page,
-// but a 4-digit PIN checked in the browser can still be brute-forced, so this is not real security.
+// onUnlock checks the PIN (on the server when Supabase is set up) and resolves to 'ok' or an error code.
 export default function PinScreen({ L, lang, onLang, onUnlock }) {
   const [entry, setEntry] = useState('');
   const [error, setError] = useState('');
@@ -14,10 +13,10 @@ export default function PinScreen({ L, lang, onLang, onUnlock }) {
   const busy = useRef(false);
   const entryRef = useRef('');
 
-  const fail = () => {
+  const fail = msg => {
     busy.current = true;
     setEntry(''); entryRef.current = '';
-    setError(L.wrongPin);
+    setError(msg);
     let n = 0;
     const step = () => {
       setShakeX(SHAKE[n]); n++;
@@ -38,11 +37,11 @@ export default function PinScreen({ L, lang, onLang, onUnlock }) {
     setError('');
     if (next.length < 4) return;
     busy.current = true;
-    const check = pinMatches(next);
+    const check = onUnlock(next).catch(() => 'network');
     setTimeout(async () => {
-      const ok = await check.catch(() => false);
+      const res = await check;
       busy.current = false;
-      if (ok) onUnlock(); else fail();
+      if (res !== 'ok') fail(ERRORS[res] ? L[ERRORS[res]] : L.wrongPin);
     }, 150);
   };
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, SESSION_KEY, THEMES, TYPES, maxFeedOf, stageOf, stagesFor, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, maxFeedOf, stageOf, stagesFor, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
-import { loadSaved, save } from './storage.js';
+import { useClassData } from './useClassData.js';
 import { chime, plop, setSoundEnabled } from './audio.js';
 import Tank from './components/Tank.jsx';
 import PinScreen from './components/PinScreen.jsx';
@@ -9,22 +9,15 @@ import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
 import ResetDialog from './components/ResetDialog.jsx';
 
-const isUnlocked = () => { try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch (e) { return false; } };
-
 export default function App() {
-  // Saved in localStorage: students, decor, names, sound, look, title, lang, tab, maxFeed.
-  const [data, setData] = useState(loadSaved);
-  const [unlocked, setUnlocked] = useState(isUnlocked);
+  const cls = useClassData();
+  const { data, unlocked } = cls;
   const [open, setOpen] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [selDecor, setSelDecor] = useState(null);
   const [newName, setNewName] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
   const tankApi = useRef(null), listRef = useRef(null);
-
-  const patch = p => setData(d => ({ ...d, ...(typeof p === 'function' ? p(d) : p) }));
-  const setStudents = fn => patch(d => ({ students: fn(d.students) }));
-  const setDecor = fn => patch(d => ({ decor: fn(d.decor) }));
 
   const { students, decor, tab, lang } = data;
   const L = strings(lang);
@@ -34,23 +27,12 @@ export default function App() {
   const maxFeed = maxFeedOf(data.maxFeed);
   const stages = stagesFor(maxFeed);
 
-  // Save on every change, and once more as the page closes.
-  const dataRef = useRef(data);
-  dataRef.current = data;
-  useEffect(() => { save(data); }, [data]);
-  useEffect(() => {
-    const onHide = () => save(dataRef.current);
-    window.addEventListener('pagehide', onHide);
-    return () => window.removeEventListener('pagehide', onHide);
-  }, []);
   useEffect(() => { setSoundEnabled(data.sound); }, [data.sound]);
   useEffect(() => { document.body.style.background = t.pageBg; }, [t.pageBg]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const closeEdit = () => { setOpen(null); setConfirm(null); };
-  const changeFood = (id, delta) => setStudents(ss => ss.map(s => s.id === id ? { ...s, food: Math.max(0, s.food + delta) } : s));
-  const setStudent = (id, p) => setStudents(ss => ss.map(s => s.id === id ? { ...s, ...p } : s));
-  const feed = id => tankApi.current ? tankApi.current.dropFood(id) : changeFood(id, 1);
+  const feed = id => tankApi.current ? tankApi.current.dropFood(id) : cls.changeFood(id, 1);
 
   const scrollToRow = id => requestAnimationFrame(() => requestAnimationFrame(() => {
     const list = listRef.current; if (!list) return;
@@ -63,10 +45,8 @@ export default function App() {
   const addStudent = () => {
     const name = newName.trim(); if (!name) return;
     const id = uid();
-    patch(d => ({
-      students: d.students.concat({ id, name, type: TYPES[Math.floor(Math.random() * TYPES.length)].k, color: Math.floor(Math.random() * COLORS.length), food: 0 }),
-      tab: 'list',
-    }));
+    cls.addStudent({ id, name, type: TYPES[Math.floor(Math.random() * TYPES.length)].k, color: Math.floor(Math.random() * COLORS.length), food: 0 });
+    cls.setPrefs({ tab: 'list' });
     setNewName('');
     setOpen(id);
     setConfirm(null);
@@ -76,41 +56,33 @@ export default function App() {
 
   const removeStudent = id => {
     if (confirm !== id) { setConfirm(id); return; }
-    setStudents(ss => ss.filter(x => x.id !== id));
+    cls.removeStudent(id);
     closeEdit();
   };
 
-  const moveLayer = (id, dir) => {
-    setDecor(ds => {
-      const a = ds.slice(), i = a.findIndex(d => d.id === id), j = i + dir;
-      if (i < 0 || j < 0 || j >= a.length) return ds;
-      [a[i], a[j]] = [a[j], a[i]];
-      return a;
-    });
-    setSelDecor(id);
-  };
-  const flipDecor = id => { setDecor(ds => ds.map(d => d.id === id ? { ...d, flip: !d.flip } : d)); setSelDecor(id); };
-  const removeDecor = id => { setDecor(ds => ds.filter(x => x.id !== id)); setSelDecor(null); };
+  const moveLayer = (id, dir) => { cls.moveLayer(id, dir); setSelDecor(id); };
+  const flipDecor = id => { cls.flipDecor(id); setSelDecor(id); };
+  const removeDecor = id => { cls.removeDecor(id); setSelDecor(null); };
   const addDecor = kind => {
     const id = uid();
-    setDecor(ds => ds.concat({ id, kind, x: 8 + Math.random() * 84 }));
+    cls.addDecor({ id, kind, x: 8 + Math.random() * 84 });
     setSelDecor(id);
     plop();
   };
 
-  const unlock = () => {
-    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { /* ignore */ }
-    setUnlocked(true);
-    chime();
+  const unlock = async pin => {
+    const res = await cls.unlock(pin);
+    if (res === 'ok') chime();
+    return res;
   };
   const lockNow = () => {
-    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
-    setUnlocked(false);
+    cls.lock();
     setOpen(null);
     setSelDecor(null);
   };
 
-  const setTab = k => { patch({ tab: k }); setSelDecor(null); };
+  const setLang = k => cls.setPrefs({ lang: k });
+  const setTab = k => { cls.setPrefs({ tab: k }); setSelDecor(null); };
   const editing = tab === 'list' && !!open;
   const focusId = editing && students.some(s => s.id === open) ? open : null;
   const title = DEFAULT_TITLES.includes(data.title) ? L.title : data.title;
@@ -118,7 +90,7 @@ export default function App() {
 
   return (
     <div style={themeVars(t)}>
-      {!unlocked && <PinScreen L={L} lang={lang} onLang={k => patch({ lang: k })} onUnlock={unlock} />}
+      {!unlocked && <PinScreen L={L} lang={lang} onLang={setLang} onUnlock={unlock} />}
       <div className="app">
         <div className="main">
           <div className="header">
@@ -128,24 +100,25 @@ export default function App() {
                 value={title}
                 aria-label="Class title"
                 placeholder={L.className}
-                onChange={e => patch({ title: e.target.value })}
-                onBlur={() => { if (!data.title.trim()) patch({ title: L.title }); }}
+                onChange={e => cls.setTitle(e.target.value)}
+                onBlur={() => { if (!data.title.trim()) cls.setTitle(L.title); }}
               />
               <div className="hint">{L.hint}</div>
             </div>
             <div className="controls">
-              <LangSwitch lang={lang} onLang={k => patch({ lang: k })} />
+              <LangSwitch lang={lang} onLang={setLang} />
               <div className="chips">
                 {LOOKS.map(k => (
-                  <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => patch({ look: k })}>{L[k]}</button>
+                  <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => cls.setPrefs({ look: k })}>{L[k]}</button>
                 ))}
               </div>
-              <button className="pill" onClick={() => patch({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
+              <button className="pill" onClick={() => cls.setPrefs({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
               <button className="pill" onClick={lockNow}>{L.lock}</button>
-              <button className="pill" onClick={() => patch({ sound: !data.sound })}>{data.sound ? L.soundOn : L.soundOff}</button>
+              <button className="pill" onClick={() => cls.setPrefs({ sound: !data.sound })}>{data.sound ? L.soundOn : L.soundOff}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
           </div>
+          {cls.syncError && <div className="sync-error" role="status">{L.syncError}</div>}
           <Tank
             ref={tankApi}
             students={students}
@@ -159,10 +132,11 @@ export default function App() {
             theme={t}
             L={L}
             isEmpty={students.length === 0}
-            onAte={id => changeFood(id, 1)}
+            onAte={id => cls.changeFood(id, 1)}
             onCloseEdit={closeEdit}
             onTankClick={() => { if (open) closeEdit(); if (tab === 'decor') setSelDecor(null); }}
-            setDecor={setDecor}
+            setDecor={cls.moveDecorLive}
+            onDecorCommit={cls.commitDecor}
             onSelectDecor={setSelDecor}
             onMoveLayer={moveLayer}
             onFlipDecor={flipDecor}
@@ -188,8 +162,8 @@ export default function App() {
                   className="input"
                   value={data.maxFeed}
                   aria-label={L.maxAt}
-                  onChange={e => patch({ maxFeed: e.target.value })}
-                  onBlur={() => patch(d => ({ maxFeed: maxFeedOf(d.maxFeed) }))}
+                  onChange={e => cls.setMaxFeed(e.target.value)}
+                  onBlur={cls.commitMaxFeed}
                 />
               </label>
               <button className="btn-outline small" onClick={() => setResetOpen(true)}>{L.resetSizes}</button>
@@ -220,8 +194,8 @@ export default function App() {
                     confirming={confirm === s.id}
                     onToggle={() => { setOpen(open === s.id ? null : s.id); setConfirm(null); }}
                     onFeed={() => feed(s.id)}
-                    onMinus={() => changeFood(s.id, -1)}
-                    onChange={p => setStudent(s.id, p)}
+                    onMinus={() => cls.changeFood(s.id, -1)}
+                    onChange={p => cls.updateStudent(s.id, p)}
                     onRemove={() => removeStudent(s.id)}
                   />
                 ))}
@@ -248,7 +222,7 @@ export default function App() {
           <ResetDialog
             L={L}
             onCancel={() => setResetOpen(false)}
-            onConfirm={() => { setStudents(ss => ss.map(s => ({ ...s, food: 0 }))); setResetOpen(false); plop(); }}
+            onConfirm={() => { cls.resetFood(); setResetOpen(false); plop(); }}
           />
         )}
       </div>

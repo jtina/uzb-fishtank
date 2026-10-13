@@ -5,6 +5,8 @@ export const STRINGS = {
   en: {
     lock: 'Lock', lockTitle: 'Enter PIN', lockSub: 'Teacher PIN required to open the aquarium', wrongPin: 'Wrong PIN, try again',
     clear: 'Clear', del: 'Delete',
+    tooMany: 'Too many tries. Wait 10 minutes and try again.', pinNotSet: 'The PIN has not been set up in the database yet.',
+    offline: "Can't reach the server. Check the internet connection.", syncError: 'Changes are not being saved. Check the internet connection.',
     className: 'Class name', hint: 'Tap the title to rename · Tap a fish to feed it', feedAll: 'Feed everyone',
     empty: 'Add a student to put the first fish in the tank', newName: 'New student name', addFish: 'Add fish',
     name: 'Name', fishType: 'Fish type', color: 'Color', undo: 'Undo a feed (−1)',
@@ -24,6 +26,8 @@ export const STRINGS = {
   uz: {
     lock: 'Qulflash', lockTitle: 'PIN kodni kiriting', lockSub: "Akvariumni ochish uchun o'qituvchi PIN kodi kerak", wrongPin: "Noto'g'ri PIN, qayta urinib ko'ring",
     clear: 'Tozalash', del: "O'chirish",
+    tooMany: "Juda ko'p urinish. 10 daqiqa kutib, qayta urinib ko'ring.", pinNotSet: "PIN kod hali bazada o'rnatilmagan.",
+    offline: "Serverga ulanib bo'lmadi. Internet aloqasini tekshiring.", syncError: "O'zgarishlar saqlanmayapti. Internet aloqasini tekshiring.",
     className: 'Sinf nomi', hint: "Nomini o'zgartirish uchun sarlavhaga bosing · Boqish uchun baliqqa bosing", feedAll: 'Hammani boqish',
     empty: "Birinchi baliqni qo'yish uchun o'quvchi qo'shing", newName: "Yangi o'quvchi ismi", addFish: "Qo'sh",
     name: 'Ism', fishType: 'Baliq turi', color: 'Rang', undo: 'Minus ball (−1)',

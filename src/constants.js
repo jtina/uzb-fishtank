@@ -5,11 +5,12 @@ const asset = name => new URL(`${import.meta.env.BASE_URL}assets/${name}`, docum
 export const STORAGE_KEY = 'classFishTank.v1';
 export const SESSION_KEY = 'classFishTank.unlocked';
 /* global __PIN_HASH__, __PIN_SALT__ */
-// Filled in at build time from the TEACHER_PIN secret (see vite.config.js).
+// Local-only mode: filled in at build time from TEACHER_PIN (see vite.config.js). Null when Supabase checks the PIN.
 export const PIN_HASH = __PIN_HASH__;
 export const PIN_SALT = __PIN_SALT__;
 
 export async function pinMatches(entry) {
+  if (!PIN_HASH) return false;
   const bytes = new TextEncoder().encode(PIN_SALT + entry);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const hex = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');

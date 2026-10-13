@@ -151,11 +151,13 @@ const Tank = forwardRef(function Tank(props, ref) {
     e.preventDefault();
     e.stopPropagation();
     const r = tankRef.current.getBoundingClientRect();
+    let moved = false;
     const move = ev => {
+      moved = true;
       const x = Math.max(3, Math.min(97, (ev.clientX - r.left) / r.width * 100));
       props.setDecor(ds => ds.map(d => d.id === id ? { ...d, x } : d));
     };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (moved) props.onDecorCommit(id); };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     props.onSelectDecor(id);
@@ -171,7 +173,7 @@ const Tank = forwardRef(function Tank(props, ref) {
       const size = Math.max(0.4, Math.min(2.5, s0 + delta / base));
       props.setDecor(ds => ds.map(d => d.id === item.id ? { ...d, size } : d));
     };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); props.onDecorCommit(item.id); };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     props.onSelectDecor(item.id);
