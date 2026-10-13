@@ -1,6 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { decorOf, fishFilter, stageOf, stagesFor, typeOf } from '../constants.js';
-import { bloop, chime, plop } from '../audio.js';
 
 const TOP = 50;
 
@@ -55,7 +54,6 @@ const Tank = forwardRef(function Tank(props, ref) {
     const W = tank.clientWidth;
     const x = Math.max(20, Math.min(W - 20, f.x + (Math.random() - 0.5) * 60));
     pellets.current.push({ x, y: -10, floor: tank.clientHeight - 64, fishId: id, el, vy: 0.8 + Math.random() * 0.4 });
-    plop();
   };
 
   const removePellet = p => { p.el.remove(); pellets.current = pellets.current.filter(q => q !== p); };
@@ -66,9 +64,8 @@ const Tank = forwardRef(function Tank(props, ref) {
     const { L, maxFeed, onAte } = live.current, stages = stagesFor(maxFeed);
     const before = stageOf(s.food, stages), after = stageOf(s.food + 1, stages);
     onAte(s.id);
-    bloop();
     popup(f.x, f.y - 30 * f.sc - 30, '+1', 22);
-    if (after > before) setTimeout(() => { chime(); popup(f.x, f.y - 30 * f.sc - 60, L.now(L.stages[after]), 24); }, 250);
+    if (after > before) setTimeout(() => { popup(f.x, f.y - 30 * f.sc - 60, L.now(L.stages[after]), 24); }, 250);
     for (let i = 0; i < 3; i++) setTimeout(() => bubble(f.x + 20 * f.dir, f.y - 8, 6 + i * 2), i * 120);
   };
 

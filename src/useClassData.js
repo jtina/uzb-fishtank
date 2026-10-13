@@ -11,7 +11,7 @@ const isPin = v => /^\d{4}$/.test(v || '');
 
 /**
  * The class data (students, decorations, title, max size) plus this device's own settings
- * (language, look, names, sound, tab).
+ * (language, look, names, tab).
  *
  * Changes apply on screen right away. With Supabase configured they are also sent to the server, and
  * changes from other devices are pulled in. Without it, everything stays in this browser.

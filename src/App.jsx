@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { COLORS, DECOR, LOOKS, THEMES, TYPES, maxFeedOf, stageOf, stagesFor, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
-import { chime, plop, setSoundEnabled } from './audio.js';
 import Tank from './components/Tank.jsx';
 import PinScreen from './components/PinScreen.jsx';
 import LangSwitch from './components/LangSwitch.jsx';
@@ -27,7 +26,6 @@ export default function App() {
   const maxFeed = maxFeedOf(data.maxFeed);
   const stages = stagesFor(maxFeed);
 
-  useEffect(() => { setSoundEnabled(data.sound); }, [data.sound]);
   useEffect(() => { document.body.style.background = t.pageBg; }, [t.pageBg]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
@@ -51,7 +49,6 @@ export default function App() {
     setOpen(id);
     setConfirm(null);
     scrollToRow(id);
-    chime();
   };
 
   const removeStudent = id => {
@@ -67,14 +64,8 @@ export default function App() {
     const id = uid();
     cls.addDecor({ id, kind, x: 8 + Math.random() * 84 });
     setSelDecor(id);
-    plop();
   };
 
-  const unlock = async pin => {
-    const res = await cls.unlock(pin);
-    if (res === 'ok') chime();
-    return res;
-  };
   const lockNow = () => {
     cls.lock();
     setOpen(null);
@@ -90,7 +81,7 @@ export default function App() {
 
   return (
     <div style={themeVars(t)}>
-      {!unlocked && <PinScreen L={L} lang={lang} onLang={setLang} onUnlock={unlock} />}
+      {!unlocked && <PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} />}
       <div className="app">
         <div className="main">
           <div className="header">
@@ -114,7 +105,6 @@ export default function App() {
               </div>
               <button className="pill" onClick={() => cls.setPrefs({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
               <button className="pill" onClick={lockNow}>{L.lock}</button>
-              <button className="pill" onClick={() => cls.setPrefs({ sound: !data.sound })}>{data.sound ? L.soundOn : L.soundOff}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
           </div>
@@ -222,7 +212,7 @@ export default function App() {
           <ResetDialog
             L={L}
             onCancel={() => setResetOpen(false)}
-            onConfirm={() => { cls.resetFood(); setResetOpen(false); plop(); }}
+            onConfirm={() => { cls.resetFood(); setResetOpen(false); }}
           />
         )}
       </div>

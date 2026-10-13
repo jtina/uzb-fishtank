@@ -4,14 +4,13 @@ import { STORAGE_KEY, TYPES, OLD_TYPES, DEFAULT_MAX_FEED } from './constants.js'
 export function loadSaved() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { /* ignore */ }
-  const base = { names: null, sound: true, look: null, title: 'Our Class Aquarium', lang: 'uz', tab: 'list', maxFeed: DEFAULT_MAX_FEED };
+  const base = { names: null, look: null, title: 'Our Class Aquarium', lang: 'uz', tab: 'list', maxFeed: DEFAULT_MAX_FEED };
   if (!saved || !saved.students) return { ...base, students: [], decor: [] };
   const keys = TYPES.map(x => x.k);
   return {
     students: saved.students.map(s => keys.includes(s.type) ? s : { ...s, type: OLD_TYPES[s.type] || 'spotty' }),
     decor: saved.decor || [],
     names: saved.names || null,
-    sound: saved.sound !== false,
     look: saved.look === 'paper' ? null : (saved.look || null),
     title: saved.title || base.title,
     lang: saved.lang || 'uz',

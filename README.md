@@ -9,13 +9,13 @@ and it grows from **Little → Grown → Big**.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
   Front / Back / Flip / Remove (double-click also flips).
 - **Max size:** set how many feeds make a fish Big (it is Grown at half). **Reset sizes** sets every feed count to 0.
-- **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover, sound.
+- **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover. There are no sounds.
 - **PIN lock:** the app opens with a teacher PIN screen. It stays unlocked until the browser tab
   is closed or **Lock** is pressed.
 - **Shared across devices:** with Supabase set up (below), every device shows the same class. Changes show up on
   other devices within a few seconds (at most 15).
 
-Students, feeds, decorations, the class title and the max size are shared. Language, look, names, sound and the
+Students, feeds, decorations, the class title and the max size are shared. Language, look, names and the
 open tab are each device's own choice.
 
 ## Development
