@@ -13,13 +13,16 @@ function retarget(f, W, top, bottom) {
  * bubbles, and the draggable / resizable decorations.
  */
 const Tank = forwardRef(function Tank(props, ref) {
-  const { students, decor, decorating, focusId, selDecor, L, isEmpty } = props;
+  const { students, decor, decorating: decorTab, focusId, selDecor, L, isEmpty } = props;
+  // quickEdit: in full screen (no side panel), double-clicking a decoration edits it right in the tank.
+  const [quickEdit, setQuickEdit] = useState(false);
+  const decorating = decorTab || quickEdit;
   const tankRef = useRef(null), fxRef = useRef(null);
   const fishEls = useRef(new Map());
   const decorEls = useRef(new Map());
   const sim = useRef({}), pellets = useRef([]), hovered = useRef(null);
   const live = useRef(props);
-  live.current = props;
+  live.current = { ...props, decorating };
 
   const popup = (x, y, text, size) => {
     const fx = fxRef.current; if (!fx) return;
@@ -93,12 +96,14 @@ const Tank = forwardRef(function Tank(props, ref) {
         }
         const p = pellets.current.find(q => q.fishId === s.id);
         let tx = f.tx, ty = f.ty, sp = f.sp;
-        if (p) { tx = p.x; ty = p.y; sp = 2.6; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
+        if (p) { tx = p.x; ty = p.y; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
         const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
+        // Chasing food: the farther away it is (e.g. from the bottom of the tank), the faster the fish swims.
+        if (p) sp = 2.6 + Math.min(3.4, d / 90);
         if (!p && !focus && (d < 24 || Math.random() < 0.003 * dt)) retarget(f, W, TOP, bottom);
-        const k = 0.04 * dt;
+        const k = (p ? 0.09 : 0.04) * dt; // reach chasing speed quickly
         f.vx += (dx / d * sp - f.vx) * k;
-        f.vy += (dy / d * sp * 0.7 - f.vy) * k;
+        f.vy += (dy / d * sp * (p ? 1 : 0.7) - f.vy) * k; // normal swimming is flatter; chasing goes straight at the food
         f.x = Math.max(30, Math.min(W - 30, f.x + f.vx * dt));
         f.y = Math.max(TOP, Math.min(bottom, f.y + f.vy * dt));
         const frozen = focus && !p;
@@ -144,7 +149,11 @@ const Tank = forwardRef(function Tank(props, ref) {
   // Full screen for the tank alone (e.g. on the smartboard). Esc also exits.
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === tankRef.current);
+    const onChange = () => {
+      const on = document.fullscreenElement === tankRef.current;
+      setFullscreen(on);
+      if (!on) setQuickEdit(q => { if (q && !live.current.decorating) live.current.onSelectDecor(null); return false; });
+    };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
@@ -153,6 +162,21 @@ const Tank = forwardRef(function Tank(props, ref) {
     e.stopPropagation();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else tankRef.current.requestFullscreen().catch(() => {});
+  };
+
+  const onTankClick = e => {
+    if (quickEdit) { setQuickEdit(false); props.onSelectDecor(null); return; } // tap on water ends editing
+    props.onTankClick(e);
+  };
+  const onTankDoubleClick = e => {
+    if (!fullscreen || decorating || e.target.closest('.fish')) return;
+    const hit = decor.slice().reverse().find(d => { // front-most first
+      const el = decorEls.current.get(d.id), r = el && el.getBoundingClientRect();
+      return r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    if (!hit) return;
+    setQuickEdit(true);
+    props.onSelectDecor(hit.id);
   };
 
   const onFishTap = (e, id) => {
@@ -215,7 +239,7 @@ const Tank = forwardRef(function Tank(props, ref) {
   const act = fn => e => { e.stopPropagation(); fn(); };
 
   return (
-    <div ref={tankRef} className="tank" onClick={props.onTankClick}>
+    <div ref={tankRef} className="tank" onClick={onTankClick} onDoubleClick={onTankDoubleClick}>
       <div className="ray" style={{ left: '12%', width: 70, height: '75%', '--a': '.32' }} />
       <div className="ray" style={{ left: '30%', width: 34, height: '65%', '--a': '.26' }} />
       <div className="ray" style={{ left: '58%', width: 90, height: '80%', '--a': '.22' }} />

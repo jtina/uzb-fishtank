@@ -9,7 +9,8 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
   Front / Back / Flip / Remove (double-click also flips).
 - **Max size:** set how many feeds make a fish full size. **Reset sizes** sets every feed count to 0.
-- **Full screen:** the button in the tank's top-right corner shows just the tank (Esc also exits).
+- **Full screen:** the button in the tank's top-right corner shows just the tank (Esc also exits). In full screen,
+  double-click a decoration to move, resize, flip, layer or remove it; tap the water when done.
 - **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover. There are no sounds.
 - **PIN lock:** the app opens with a teacher PIN screen. It stays unlocked until the browser tab
   is closed or **Lock** is pressed.
