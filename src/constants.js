@@ -19,11 +19,11 @@ export async function pinMatches(entry) {
 
 // Every fish picture is blue-ish, so colors are applied as a hue shift from 210°.
 export const TYPES = [
-  { k: 'spotty', img: asset('spotty.png'), hue: 210 },
-  { k: 'scales', img: asset('scales.png'), hue: 210 },
-  { k: 'hearts', img: asset('hearts.png'), hue: 210 },
-  { k: 'waves', img: asset('waves.png'), hue: 210 },
-  { k: 'flowers', img: asset('flowers.png'), hue: 210 },
+  { k: 'spotty', img: asset('spotty.webp'), hue: 210 },
+  { k: 'scales', img: asset('scales.webp'), hue: 210 },
+  { k: 'hearts', img: asset('hearts.webp'), hue: 210 },
+  { k: 'waves', img: asset('waves.webp'), hue: 210 },
+  { k: 'flowers', img: asset('flowers.webp'), hue: 210 },
 ];
 
 // Types from earlier versions, mapped onto the current ones when loading saved data.
@@ -58,17 +58,20 @@ export function fishFilter(s) {
 export const typeOf = k => TYPES.find(x => x.k === k) || TYPES[0];
 
 export const DECOR = [
-  { k: 'chest', swatch: '#E0A33A', img: asset('decor-chest.png'), h: 96 },
-  { k: 'castle', swatch: '#8F93A8', img: asset('decor-castle.png'), h: 175 },
-  { k: 'cave', swatch: '#6F7387', img: asset('decor-cave.png'), h: 130 },
-  { k: 'coral', swatch: '#F48A8F', img: asset('decor-coral.png'), h: 125 },
-  { k: 'seaweed', swatch: '#4FA35C', img: asset('decor-seaweed.png'), h: 185 },
-  { k: 'seagrass', swatch: '#7CC05A', img: asset('decor-seagrass.png'), h: 140 },
-  { k: 'rock', swatch: '#9A9BAE', img: asset('decor-rock.png'), h: 78 },
-  { k: 'shell', swatch: '#F2A9B4', img: asset('decor-shell.png'), h: 62 },
-  { k: 'star', swatch: '#F58A6E', img: asset('decor-star.png'), h: 56 },
+  { k: 'chest', swatch: '#E0A33A', img: asset('decor-chest.webp'), h: 96 },
+  { k: 'castle', swatch: '#8F93A8', img: asset('decor-castle.webp'), h: 175 },
+  { k: 'cave', swatch: '#6F7387', img: asset('decor-cave.webp'), h: 130 },
+  { k: 'coral', swatch: '#F48A8F', img: asset('decor-coral.webp'), h: 125 },
+  { k: 'seaweed', swatch: '#4FA35C', img: asset('decor-seaweed.webp'), h: 185 },
+  { k: 'seagrass', swatch: '#7CC05A', img: asset('decor-seagrass.webp'), h: 140 },
+  { k: 'rock', swatch: '#9A9BAE', img: asset('decor-rock.webp'), h: 78 },
+  { k: 'shell', swatch: '#F2A9B4', img: asset('decor-shell.webp'), h: 62 },
+  { k: 'star', swatch: '#F58A6E', img: asset('decor-star.webp'), h: 56 },
 ];
 export const decorOf = k => DECOR.find(x => x.k === k) || {};
+
+// Fetched as soon as the app opens, so switching looks or adding fish/decorations never waits for a download.
+export const PRELOAD_IMAGES = [asset('tank-bg.webp'), asset('tank-bg-night.webp'), ...TYPES.map(t => t.img), ...DECOR.map(d => d.img)];
 
 export const DEFAULT_MAX_FEED = 50;
 export function maxFeedOf(raw) {
@@ -84,7 +87,7 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const THEMES = {
   sunny: {
     font: "'Fredoka',sans-serif", pageBg: '#DDF2FA', ink: '#2B3A4A', sub: '#5F7183', panelBg: '#FCF8F1', border: '#E5D9C6', rim: '#2F4C6B',
-    tankBg: `url(${asset('tank-bg.png')}) center bottom / cover no-repeat, #5BBDE6`,
+    tankBg: `url(${asset('tank-bg.webp')}) center bottom / cover no-repeat, #5BBDE6`,
     sand: 'transparent', sandEdge: 'transparent', sandDot: 'transparent', rays: '0',
     rock: '#A9AFB8', rock2: '#8B929C', rockLine: '#5E6672',
     accent: '#F7889A', accentShadow: '#DD6A7F', accentInk: '#FFFFFF',
