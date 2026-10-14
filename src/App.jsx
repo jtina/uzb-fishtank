@@ -48,9 +48,10 @@ export default function App() {
   const alwaysNames = (data.names || 'hover') === 'always';
   const maxFeed = maxFeedOf(data.maxFeed);
 
-  // The PIN screen always uses the Sunny Reef colors; the look belongs to the aquarium behind it.
-  const pageBg = unlocked ? t.pageBg : THEMES.sunny.pageBg;
-  useEffect(() => { document.body.style.background = pageBg; }, [pageBg]);
+  // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
+  // Sunny Reef colors (the phone's look switch still changes the class screen).
+  const ui = unlocked && !phone ? t : THEMES.sunny;
+  useEffect(() => { document.body.style.background = ui.pageBg; }, [ui.pageBg]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const closeEdit = () => { setOpen(null); setConfirm(null); };
@@ -112,7 +113,7 @@ export default function App() {
   const rows = students.slice().sort((a, b) => b.food - a.food || a.name.localeCompare(b.name));
 
   return (
-    <div style={themeVars(t)}>
+    <div style={themeVars(ui)}>
       {!unlocked && <div style={themeVars(THEMES.sunny)}><PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} /></div>}
       <div className={'app' + (phone ? ' phone' : '')}>
         <div className="main">
