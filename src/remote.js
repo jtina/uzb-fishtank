@@ -12,7 +12,8 @@ const sb = remoteEnabled
   ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
   : null;
 
-// code: 'wrong_pin' | 'too_many_attempts' | 'pin_not_set' | 'network'
+// code: 'wrong_pin' | 'too_many_attempts' | 'pin_not_set' | 'network' | 'needs_update' (a function from a newer
+// supabase/fishtank.sql is missing: the script needs re-running)
 export class RemoteError extends Error {
   constructor(code) { super(code); this.code = code; }
 }
@@ -20,7 +21,7 @@ export class RemoteError extends Error {
 async function call(fn, args) {
   let res;
   try { res = await sb.rpc(fn, args); } catch (e) { throw new RemoteError('network'); }
-  if (res.error) throw new RemoteError('network');
+  if (res.error) throw new RemoteError(res.error.code === 'PGRST202' || res.status === 404 ? 'needs_update' : 'network');
   if (res.data && res.data.error) throw new RemoteError(res.data.error);
   return res.data;
 }

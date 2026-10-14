@@ -14,7 +14,7 @@ const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); 
 function initialData(sess) {
   const d = loadSaved();
   if (!remoteEnabled || !sess || d.tank === sess.tank) return d;
-  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0] };
+  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0], look: null, names: null };
 }
 
 /**
@@ -31,7 +31,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
   const [sess] = useState(() => (remoteEnabled ? parseSession(readSession()) : null));
   const [data, setData] = useState(() => initialData(sess));
   const [unlocked, setUnlocked] = useState(() => (remoteEnabled ? !!sess : readSession() === '1'));
-  const [syncError, setSyncError] = useState(false);
+  const [syncError, setSyncError] = useState(null); // null | 'network' | 'needs_update'
   const pin = useRef(sess ? sess.pin : null);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -57,8 +57,9 @@ export function useClassData({ onRemoteFeeds } = {}) {
     decor: snap.decor,
     title: snap.title || DEFAULT_TITLES[0],
     maxFeed: snap.maxFeed,
-    names: snap.names || d.names,
-    look: snap.look || d.look,
+    // Each aquarium has its own look and names setting; never carry them over from another one.
+    names: snap.names || 'hover',
+    look: snap.look || 'sunny',
   }));
 
   const lock = () => {
@@ -69,7 +70,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     setUnlocked(false);
   };
 
-  const onError = e => { if (e.code === 'wrong_pin') lock(); else setSyncError(true); };
+  const onError = e => { if (e.code === 'wrong_pin') lock(); else setSyncError(e.code === 'needs_update' ? 'needs_update' : 'network'); };
 
   const refresh = async () => {
     if (!remoteEnabled || !pin.current || busy()) return;
@@ -82,7 +83,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
         applySnapshot(snap);
         if (fed.length && remoteFeeds.current) remoteFeeds.current(fed);
       }
-      setSyncError(false);
+      setSyncError(err => (err === 'network' ? null : err)); // a working load proves the connection, not a missing update
     } catch (e) { onError(e); }
   };
 
@@ -91,7 +92,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     pending.current++;
     writeGen.current++;
     let failed = false;
-    try { await fn(pin.current); setSyncError(false); } catch (e) { failed = true; onError(e); }
+    try { await fn(pin.current); setSyncError(null); } catch (e) { failed = true; onError(e); }
     pending.current--;
     if (!busy()) { if (failed) refresh(); else watcher.current.notify(); }
   };
@@ -133,7 +134,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
       pin.current = entry;
       writeSession(entry + '|' + snap.tank);
       applySnapshot(snap);
-      setSyncError(false);
+      setSyncError(null);
       setUnlocked(true);
       return 'ok';
     } catch (e) { return e.code; }

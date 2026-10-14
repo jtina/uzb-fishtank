@@ -363,3 +363,6 @@ grant execute on function public.fishtank_order_decor(text, text[]) to anon, aut
 grant execute on function public.fishtank_save_config(text, text, int) to anon, authenticated;
 grant execute on function public.fishtank_save_names(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_look(text, text) to anon, authenticated;
+
+-- Make the API see new or changed functions right away.
+notify pgrst, 'reload schema';

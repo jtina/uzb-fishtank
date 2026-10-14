@@ -48,7 +48,9 @@ export default function App() {
   const alwaysNames = (data.names || 'hover') === 'always';
   const maxFeed = maxFeedOf(data.maxFeed);
 
-  useEffect(() => { document.body.style.background = t.pageBg; }, [t.pageBg]);
+  // The PIN screen always uses the Sunny Reef colors; the look belongs to the aquarium behind it.
+  const pageBg = unlocked ? t.pageBg : THEMES.sunny.pageBg;
+  useEffect(() => { document.body.style.background = pageBg; }, [pageBg]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const closeEdit = () => { setOpen(null); setConfirm(null); };
@@ -111,7 +113,7 @@ export default function App() {
 
   return (
     <div style={themeVars(t)}>
-      {!unlocked && <PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} />}
+      {!unlocked && <div style={themeVars(THEMES.sunny)}><PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} /></div>}
       <div className={'app' + (phone ? ' phone' : '')}>
         <div className="main">
           <div className="header">
@@ -139,7 +141,7 @@ export default function App() {
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
           </div>
-          {cls.syncError && <div className="sync-error" role="status">{L.syncError}</div>}
+          {cls.syncError && <div className="sync-error" role="status">{cls.syncError === 'needs_update' ? L.needsUpdate : L.syncError}</div>}
           {!phone && <Tank
             ref={tankApi}
             students={students}
