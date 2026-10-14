@@ -39,9 +39,9 @@ export const api = {
 
 // Devices ping each other over a broadcast channel when they change something; the ping carries no data,
 // receivers just reload through the PIN-checked functions.
-export function watchChanges(onChange) {
-  if (!sb) return { notify() {}, close() {} };
-  const channel = sb.channel('fishtank-changes');
+export function watchChanges(tank, onChange) {
+  if (!sb || !tank) return { notify() {}, close() {} };
+  const channel = sb.channel('fishtank-changes-' + tank);
   channel.on('broadcast', { event: 'changed' }, () => onChange()).subscribe();
   return {
     notify: () => { channel.send({ type: 'broadcast', event: 'changed', payload: {} }).catch(() => {}); },

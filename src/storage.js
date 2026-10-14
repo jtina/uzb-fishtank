@@ -16,6 +16,7 @@ export function loadSaved() {
     lang: saved.lang || 'uz',
     tab: saved.tab === 'decor' ? 'decor' : 'list',
     maxFeed: saved.maxFeed == null ? DEFAULT_MAX_FEED : saved.maxFeed,
+    tank: saved.tank || null,
   };
 }
 

@@ -1,10 +1,14 @@
 -- Class Fish Tank: database setup for Supabase.
 --
--- Run this whole file once in Supabase → SQL Editor. It only creates fishtank_* tables and functions,
--- and is safe to run again after an update.
+-- Run this whole file in Supabase → SQL Editor. It only creates fishtank_* tables and functions, and is safe
+-- to run again after an update (an earlier single-aquarium setup is upgraded and its data kept).
 --
--- Then set the teacher PIN by running this line on its own (it is not saved in this file):
---   select fishtank_set_pin('1234');
+-- Each aquarium has its own PIN, and the PIN entered on the lock screen decides which aquarium opens.
+-- Set PINs by running these lines on their own, with XXXX / YYYY replaced by 4-digit PINs
+-- (don't save real PINs in this file, the repo is public):
+--   select fishtank_set_pin('XXXX');            -- the class aquarium ("main")
+--   select fishtank_set_pin('YYYY', 'test');    -- a separate test aquarium
+-- To delete an aquarium and everything in it:  delete from fishtank_tanks where id = 'test';
 --
 -- How it is protected: the tables have row level security on and no policies, so the public
 -- (anon) key cannot read or write them. The app only calls the fishtank_* functions below, and each
@@ -15,17 +19,32 @@ create extension if not exists pgcrypto with schema extensions;
 
 -- ---------- Tables ----------
 
-create table if not exists public.fishtank_config (
-  id int primary key default 1 check (id = 1),
+create table if not exists public.fishtank_tanks (
+  id text primary key check (id ~ '^[a-z0-9_-]{1,30}$'),
   pin_hash text,
   title text,
   max_feed int not null default 50,
   updated_at timestamptz not null default now()
 );
-insert into public.fishtank_config (id) values (1) on conflict (id) do nothing;
+insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
+
+-- Upgrade from the single-aquarium version, which kept its settings in fishtank_config.
+do $$
+begin
+  if to_regclass('public.fishtank_config') is not null then
+    update public.fishtank_tanks t
+    set pin_hash = coalesce(t.pin_hash, c.pin_hash), title = coalesce(t.title, c.title), max_feed = c.max_feed
+    from public.fishtank_config c
+    where t.id = 'main' and c.id = 1;
+    drop table public.fishtank_config;
+  end if;
+end $$;
+drop function if exists public._fishtank_pin_error(text);
+drop function if exists public.fishtank_set_pin(text);
 
 create table if not exists public.fishtank_students (
   id text primary key,
+  tank text not null default 'main' references public.fishtank_tanks (id) on delete cascade,
   name text not null,
   type text not null,
   color int not null default 0,
@@ -35,6 +54,7 @@ create table if not exists public.fishtank_students (
 
 create table if not exists public.fishtank_decor (
   id text primary key,
+  tank text not null default 'main' references public.fishtank_tanks (id) on delete cascade,
   kind text not null,
   x real not null default 50,
   size real not null default 1,
@@ -42,24 +62,29 @@ create table if not exists public.fishtank_decor (
   z int not null default 0
 );
 
+-- Upgrade: rows from the single-aquarium version belong to "main".
+alter table public.fishtank_students add column if not exists tank text not null default 'main' references public.fishtank_tanks (id) on delete cascade;
+alter table public.fishtank_decor add column if not exists tank text not null default 'main' references public.fishtank_tanks (id) on delete cascade;
+create index if not exists fishtank_students_tank on public.fishtank_students (tank);
+create index if not exists fishtank_decor_tank on public.fishtank_decor (tank);
+
 create table if not exists public.fishtank_pin_failures (
   ip text not null,
   at timestamptz not null default now()
 );
 create index if not exists fishtank_pin_failures_ip_at on public.fishtank_pin_failures (ip, at);
 
-alter table public.fishtank_config enable row level security;
+alter table public.fishtank_tanks enable row level security;
 alter table public.fishtank_students enable row level security;
 alter table public.fishtank_decor enable row level security;
 alter table public.fishtank_pin_failures enable row level security;
-revoke all on public.fishtank_config, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures from anon, authenticated;
+revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures from anon, authenticated;
 
 -- ---------- PIN check (internal) ----------
 
--- Returns null when the PIN is right, otherwise an error code. Wrong PINs are recorded, so this
--- returns instead of raising (raising would roll the record back).
-create or replace function public._fishtank_pin_error(p_pin text)
-returns text
+-- Finds the aquarium whose PIN matches. Sets o_err instead of raising, because raising would roll back the
+-- record of a wrong PIN.
+create or replace function public._fishtank_auth(p_pin text, out o_tank text, out o_err text)
 language plpgsql
 security definer
 set search_path = public, extensions
@@ -67,24 +92,27 @@ as $$
 declare
   v_headers json := nullif(current_setting('request.headers', true), '')::json;
   v_ip text := coalesce(nullif(trim(split_part(v_headers->>'x-forwarded-for', ',', 1)), ''), 'unknown');
-  v_hash text;
 begin
   delete from fishtank_pin_failures where at < now() - interval '1 day';
   if (select count(*) from fishtank_pin_failures where ip = v_ip and at > now() - interval '10 minutes') >= 10 then
-    return 'too_many_attempts';
+    o_err := 'too_many_attempts';
+    return;
   end if;
-  select pin_hash into v_hash from fishtank_config where id = 1;
-  if v_hash is null then
-    return 'pin_not_set';
+  if not exists (select 1 from fishtank_tanks where pin_hash is not null) then
+    o_err := 'pin_not_set';
+    return;
   end if;
-  if p_pin is null or crypt(p_pin, v_hash) <> v_hash then
+  if p_pin is not null then
+    select id into o_tank from fishtank_tanks where pin_hash is not null and crypt(p_pin, pin_hash) = pin_hash limit 1;
+  end if;
+  if o_tank is null then
     insert into fishtank_pin_failures (ip) values (v_ip);
-    return 'wrong_pin';
+    o_err := 'wrong_pin';
   end if;
-  return null;
 end $$;
 
-create or replace function public.fishtank_set_pin(p_new text)
+-- Sets an aquarium's PIN, creating the aquarium if it is new. Two aquariums can't share a PIN.
+create or replace function public.fishtank_set_pin(p_new text, p_tank text default 'main')
 returns void
 language plpgsql
 security definer
@@ -94,11 +122,18 @@ begin
   if p_new !~ '^\d{4}$' then
     raise exception 'The PIN must be exactly 4 digits';
   end if;
-  update fishtank_config set pin_hash = crypt(p_new, gen_salt('bf')), updated_at = now() where id = 1;
+  if p_tank !~ '^[a-z0-9_-]{1,30}$' then
+    raise exception 'The aquarium name may only use a-z, 0-9, - and _';
+  end if;
+  if exists (select 1 from fishtank_tanks where id <> p_tank and pin_hash is not null and crypt(p_new, pin_hash) = pin_hash) then
+    raise exception 'Another aquarium already uses this PIN';
+  end if;
+  insert into fishtank_tanks (id, pin_hash) values (p_tank, crypt(p_new, gen_salt('bf')))
+  on conflict (id) do update set pin_hash = excluded.pin_hash, updated_at = now();
   delete from fishtank_pin_failures;
 end $$;
 
--- ---------- App functions (every one needs the PIN) ----------
+-- ---------- App functions (every one needs the PIN, and only touches that PIN's aquarium) ----------
 
 create or replace function public.fishtank_load(p_pin text)
 returns jsonb
@@ -106,14 +141,16 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
   return jsonb_build_object(
-    'title', (select title from fishtank_config where id = 1),
-    'maxFeed', (select max_feed from fishtank_config where id = 1),
-    'students', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'type', type, 'color', color, 'food', food) order by created_at, id) from fishtank_students), '[]'::jsonb),
-    'decor', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'x', x, 'size', size, 'flip', flip) order by z, id) from fishtank_decor), '[]'::jsonb)
+    'tank', v_tank,
+    'title', (select title from fishtank_tanks where id = v_tank),
+    'maxFeed', (select max_feed from fishtank_tanks where id = v_tank),
+    'students', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'type', type, 'color', color, 'food', food) order by created_at, id) from fishtank_students where tank = v_tank), '[]'::jsonb),
+    'decor', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'x', x, 'size', size, 'flip', flip) order by z, id) from fishtank_decor where tank = v_tank), '[]'::jsonb)
   );
 end $$;
 
@@ -124,17 +161,20 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  insert into fishtank_students (id, name, type, color)
+  insert into fishtank_students (id, tank, name, type, color)
   values (
     left(p_student->>'id', 64),
+    v_tank,
     left(coalesce(p_student->>'name', ''), 60),
     left(coalesce(p_student->>'type', 'spotty'), 20),
     greatest(0, least(13, coalesce((p_student->>'color')::int, 0)))
   )
-  on conflict (id) do update set name = excluded.name, type = excluded.type, color = excluded.color;
+  on conflict (id) do update set name = excluded.name, type = excluded.type, color = excluded.color
+  where fishtank_students.tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -144,10 +184,11 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  delete from fishtank_students where id = p_id;
+  delete from fishtank_students where id = p_id and tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -158,11 +199,12 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin); v_food int;
+declare v_tank text; v_err text; v_food int;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
   update fishtank_students set food = greatest(0, food + greatest(-1000, least(1000, p_delta)))
-  where id = p_id returning food into v_food;
+  where id = p_id and tank = v_tank returning food into v_food;
   return jsonb_build_object('ok', true, 'food', v_food);
 end $$;
 
@@ -172,10 +214,11 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  update fishtank_students set food = 0 where food <> 0;
+  update fishtank_students set food = 0 where tank = v_tank and food <> 0;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -185,19 +228,22 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  insert into fishtank_decor (id, kind, x, size, flip, z)
+  insert into fishtank_decor (id, tank, kind, x, size, flip, z)
   values (
     left(p_decor->>'id', 64),
+    v_tank,
     left(coalesce(p_decor->>'kind', 'rock'), 20),
     greatest(0, least(100, coalesce((p_decor->>'x')::real, 50))),
     greatest(0.3, least(3, coalesce((p_decor->>'size')::real, 1))),
     coalesce((p_decor->>'flip')::boolean, false),
-    coalesce((select max(z) + 1 from fishtank_decor), 0)
+    coalesce((select max(z) + 1 from fishtank_decor where tank = v_tank), 0)
   )
-  on conflict (id) do update set kind = excluded.kind, x = excluded.x, size = excluded.size, flip = excluded.flip;
+  on conflict (id) do update set kind = excluded.kind, x = excluded.x, size = excluded.size, flip = excluded.flip
+  where fishtank_decor.tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -207,10 +253,11 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  delete from fishtank_decor where id = p_id;
+  delete from fishtank_decor where id = p_id and tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -221,12 +268,13 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
   update fishtank_decor d set z = o.i
   from unnest(p_ids) with ordinality as o(id, i)
-  where d.id = o.id;
+  where d.id = o.id and d.tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -237,21 +285,22 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_err text := _fishtank_pin_error(p_pin);
+declare v_tank text; v_err text;
 begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  update fishtank_config
+  update fishtank_tanks
   set title = left(nullif(trim(p_title), ''), 80),
       max_feed = greatest(2, least(999, coalesce(p_max_feed, 50))),
       updated_at = now()
-  where id = 1;
+  where id = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
 
 -- ---------- Permissions ----------
 
-revoke all on function public._fishtank_pin_error(text) from public, anon, authenticated;
-revoke all on function public.fishtank_set_pin(text) from public, anon, authenticated;
+revoke all on function public._fishtank_auth(text) from public, anon, authenticated;
+revoke all on function public.fishtank_set_pin(text, text) from public, anon, authenticated;
 
 revoke all on function public.fishtank_load(text) from public;
 revoke all on function public.fishtank_save_student(text, jsonb) from public;

@@ -127,3 +127,4 @@ button{font-family:inherit}
 .pin-key:active{transform:scale(.96)}
 
 .sync-error{align-self:flex-start;font-size:15px;font-weight:600;padding:8px 14px;border-radius:12px;background:#FDE2E2;color:#9B1C1F;border:2px solid #F5B5B7}
+.test-badge{align-self:flex-start;font-size:14px;font-weight:700;letter-spacing:.3px;padding:4px 12px;border-radius:999px;background:#FFB020;color:#3B2A00;margin-bottom:4px}

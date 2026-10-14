@@ -7,7 +7,15 @@ import { api, remoteEnabled, watchChanges } from './remote.js';
 const POLL_MS = 15000;
 const readSession = () => { try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; } };
 const writeSession = v => { try { if (v) sessionStorage.setItem(SESSION_KEY, v); else sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } };
-const isPin = v => /^\d{4}$/.test(v || '');
+// Remote mode keeps "pin|tank" for this tab; the PIN entered decides which aquarium (tank) is open.
+const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); return m ? { pin: m[1], tank: m[2] } : null; };
+
+// The cached copy may belong to another aquarium (e.g. the test one); don't flash it while loading.
+function initialData(sess) {
+  const d = loadSaved();
+  if (!remoteEnabled || !sess || d.tank === sess.tank) return d;
+  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0] };
+}
 
 /**
  * The class data (students, decorations, title, max size) plus this device's own settings
@@ -17,11 +25,11 @@ const isPin = v => /^\d{4}$/.test(v || '');
  * changes from other devices are pulled in. Without it, everything stays in this browser.
  */
 export function useClassData() {
-  const [data, setData] = useState(loadSaved);
-  const session = readSession();
-  const [unlocked, setUnlocked] = useState(remoteEnabled ? isPin(session) : session === '1');
+  const [sess] = useState(() => (remoteEnabled ? parseSession(readSession()) : null));
+  const [data, setData] = useState(() => initialData(sess));
+  const [unlocked, setUnlocked] = useState(() => (remoteEnabled ? !!sess : readSession() === '1'));
   const [syncError, setSyncError] = useState(false);
-  const pin = useRef(remoteEnabled && isPin(session) ? session : null);
+  const pin = useRef(sess ? sess.pin : null);
   const dataRef = useRef(data);
   dataRef.current = data;
 
@@ -41,6 +49,7 @@ export function useClassData() {
 
   const applySnapshot = snap => setData(d => ({
     ...d,
+    tank: snap.tank,
     students: snap.students,
     decor: snap.decor,
     title: snap.title || DEFAULT_TITLES[0],
@@ -88,7 +97,7 @@ export function useClassData() {
   useEffect(() => {
     if (!remoteEnabled || !unlocked) return;
     refresh();
-    watcher.current = watchChanges(refresh);
+    watcher.current = watchChanges(data.tank, refresh);
     const iv = setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS);
     const onVis = () => { if (!document.hidden) refresh(); };
     document.addEventListener('visibilitychange', onVis);
@@ -99,7 +108,7 @@ export function useClassData() {
       watcher.current = { notify() {}, close() {} };
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unlocked]);
+  }, [unlocked, data.tank]);
 
   // Resolves to 'ok' or an error code: 'wrong_pin' | 'too_many_attempts' | 'pin_not_set' | 'network'.
   const unlock = async entry => {
@@ -112,7 +121,7 @@ export function useClassData() {
     try {
       const snap = await api.load(entry);
       pin.current = entry;
-      writeSession(entry);
+      writeSession(entry + '|' + snap.tank);
       applySnapshot(snap);
       setSyncError(false);
       setUnlocked(true);

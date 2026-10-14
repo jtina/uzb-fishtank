@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { decorOf, fishFilter, stageOf, stagesFor, typeOf } from '../constants.js';
+import { decorOf, fishFilter, growScale, stageOf, stagesFor, typeOf } from '../constants.js';
 
 const TOP = 50;
 
@@ -79,14 +79,13 @@ const Tank = forwardRef(function Tank(props, ref) {
       const dt = Math.min(3, (now - last) / 16.67); last = now;
       const tank = tankRef.current; if (!tank) return;
       const { students, focusId, decorating, alwaysNames, maxFeed } = live.current;
-      const stages = stagesFor(maxFeed);
       const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90;
       const ids = {};
       for (const s of students) {
         ids[s.id] = 1;
         const el = fishEls.current.get(s.id); if (!el) continue;
         const focus = s.id === focusId;
-        const base = stages[stageOf(s.food, stages)].scale, target = focus ? Math.max(2, base * 1.4) : base;
+        const base = growScale(s.food, maxFeed), target = focus ? Math.max(2, base * 1.4) : base;
         let f = sim.current[s.id];
         if (!f) {
           f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0 };

@@ -86,6 +86,7 @@ export default function App() {
         <div className="main">
           <div className="header">
             <div className="title-block">
+              {data.tank && data.tank !== 'main' && <div className="test-badge">{L.testTank}</div>}
               <input
                 className="title-input"
                 value={title}

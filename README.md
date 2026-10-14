@@ -1,14 +1,14 @@
 # Class Fish Tank (Sinfimiz akvariumi)
 
 A classroom aquarium for 2nd graders. Every student has a fish. The teacher feeds a fish as a reward,
-and it grows from **Little → Grown → Big**.
+and it grows a little with every feed until it is full size (**Little → Grown → Big**).
 
 - **Feeding:** tap a fish in the tank, press **+1** on a student's row, or press **Feed everyone**.
 - **Students:** when you add a student, their fish opens in edit view (name, fish type, color). The list is sorted by feeds.
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
   Front / Back / Flip / Remove (double-click also flips).
-- **Max size:** set how many feeds make a fish Big (it is Grown at half). **Reset sizes** sets every feed count to 0.
+- **Max size:** set how many feeds make a fish full size (Big). It is Grown at half. **Reset sizes** sets every feed count to 0.
 - **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover. There are no sounds.
 - **PIN lock:** the app opens with a teacher PIN screen. It stays unlocked until the browser tab
   is closed or **Lock** is pressed.
@@ -31,17 +31,23 @@ The build uses relative paths, so `dist/` can be hosted on GitHub Pages or any s
 ## Supabase setup (shared data + PIN)
 
 1. In your Supabase project, open **SQL Editor**, paste all of [`supabase/fishtank.sql`](supabase/fishtank.sql) and run it.
-   It only creates `fishtank_*` tables and functions.
-2. In the SQL Editor, run this on its own line with your PIN (don't save it in a file):
-   `select fishtank_set_pin('1234');`
+   It only creates `fishtank_*` tables and functions. Run it again after updates (it upgrades in place and keeps data).
+2. In the SQL Editor, set the PINs on their own lines, replacing `XXXX` / `YYYY` with 4-digit PINs
+   (don't write real PINs into this repo, it is public):
+   - `select fishtank_set_pin('XXXX');` for the class aquarium
+   - `select fishtank_set_pin('YYYY', 'test');` for a separate **test aquarium** (optional)
 3. In Supabase → **Project Settings → API**, copy the **Project URL** and the **anon / publishable** key.
    Never use the `service_role` / secret key here.
 4. In GitHub → **Settings → Secrets and variables → Actions**, add the secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`,
    then re-run the "Deploy to GitHub Pages" workflow.
 
+The PIN entered on the lock screen decides which aquarium opens. Each aquarium has its own students, decorations,
+title and max size, and any aquarium other than the class one shows a "Test aquarium" badge. To delete the test
+aquarium and everything in it: `delete from fishtank_tanks where id = 'test';`
+
 The tables are locked to the public key. The app can only use the `fishtank_*` functions, and each one checks the PIN
 on the server, so the PIN is never in the page. After 10 wrong PINs from one address in 10 minutes, that address is
-blocked until the 10 minutes are up. To change the PIN, run `fishtank_set_pin` again. Every device then has to enter
+blocked until the 10 minutes are up. To change a PIN, run `fishtank_set_pin` again. Every device then has to enter
 the new PIN.
 
 If a change can't be saved (no internet), a warning shows above the tank, and the device goes back to the shared

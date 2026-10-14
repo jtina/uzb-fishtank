@@ -75,10 +75,13 @@ export function maxFeedOf(raw) {
   const v = parseInt(raw, 10);
   return v >= 2 ? Math.min(v, 999) : DEFAULT_MAX_FEED;
 }
-// Little → Grown (half way) → Big (max).
+// Stage names for the list and the "Now Big!" message: Little → Grown (half way) → Big (max).
 export function stagesFor(maxFeed) {
-  return [{ min: 0, scale: 0.6 }, { min: Math.max(1, Math.round(maxFeed / 2)), scale: 0.95 }, { min: maxFeed, scale: 1.5 }];
+  return [{ min: 0 }, { min: Math.max(1, Math.round(maxFeed / 2)) }, { min: maxFeed }];
 }
+// Fish size grows a little with every feed, from MIN_SCALE at 0 feeds to MAX_SCALE at max size.
+const MIN_SCALE = 0.6, MAX_SCALE = 1.5;
+export const growScale = (food, maxFeed) => MIN_SCALE + (MAX_SCALE - MIN_SCALE) * Math.min(food, maxFeed) / maxFeed;
 export function stageOf(food, stages) {
   let i = 0;
   stages.forEach((s, j) => { if (food >= s.min) i = j; });
