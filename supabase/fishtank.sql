@@ -228,6 +228,22 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Removes every student from the aquarium. Only allowed for the test aquarium.
+create or replace function public.fishtank_delete_all_students(p_pin text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  if v_tank <> 'test' then return jsonb_build_object('error', 'not_allowed'); end if;
+  delete from fishtank_students where tank = v_tank;
+  return jsonb_build_object('ok', true);
+end $$;
+
 create or replace function public.fishtank_save_decor(p_pin text, p_decor jsonb)
 returns jsonb
 language plpgsql
@@ -345,6 +361,7 @@ revoke all on function public.fishtank_save_student(text, jsonb) from public;
 revoke all on function public.fishtank_delete_student(text, text) from public;
 revoke all on function public.fishtank_add_food(text, text, int) from public;
 revoke all on function public.fishtank_reset_food(text) from public;
+revoke all on function public.fishtank_delete_all_students(text) from public;
 revoke all on function public.fishtank_save_decor(text, jsonb) from public;
 revoke all on function public.fishtank_delete_decor(text, text) from public;
 revoke all on function public.fishtank_order_decor(text, text[]) from public;
@@ -357,6 +374,7 @@ grant execute on function public.fishtank_save_student(text, jsonb) to anon, aut
 grant execute on function public.fishtank_delete_student(text, text) to anon, authenticated;
 grant execute on function public.fishtank_add_food(text, text, int) to anon, authenticated;
 grant execute on function public.fishtank_reset_food(text) to anon, authenticated;
+grant execute on function public.fishtank_delete_all_students(text) to anon, authenticated;
 grant execute on function public.fishtank_save_decor(text, jsonb) to anon, authenticated;
 grant execute on function public.fishtank_delete_decor(text, text) to anon, authenticated;
 grant execute on function public.fishtank_order_decor(text, text[]) to anon, authenticated;

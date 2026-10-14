@@ -26,6 +26,7 @@ button{font-family:inherit}
 .btn-outline{font-size:17px;font-weight:600;padding:12px 20px;min-height:48px;border-radius:14px;border:2px solid var(--rowBorder);background:transparent;color:var(--ink);cursor:pointer}
 .btn-outline.small{font-size:15px;padding:8px 14px;min-height:44px;border-radius:12px}
 .panel-tools .btn-outline.small{font-size:14px;padding:8px 12px;min-height:40px;white-space:nowrap}
+.btn-outline.danger{color:#D13B40}
 .btn-danger{font-size:17px;font-weight:600;padding:12px 20px;min-height:48px;border-radius:14px;border:none;background:#E5484D;color:#FFFFFF;cursor:pointer}
 .btn-primary{font-size:17px;font-weight:600;padding:0 18px;min-height:48px;border-radius:14px;border:none;background:var(--btnBg);color:var(--btnInk);cursor:pointer}
 .input{font-family:inherit;font-size:17px;padding:10px 12px;border-radius:12px;border:2px solid var(--inputBorder);background:var(--inputBg);color:var(--ink);outline:none}

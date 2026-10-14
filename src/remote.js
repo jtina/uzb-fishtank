@@ -32,6 +32,7 @@ export const api = {
   deleteStudent: (pin, id) => call('fishtank_delete_student', { p_pin: pin, p_id: id }),
   addFood: (pin, id, delta) => call('fishtank_add_food', { p_pin: pin, p_id: id, p_delta: delta }),
   resetFood: pin => call('fishtank_reset_food', { p_pin: pin }),
+  deleteAllStudents: pin => call('fishtank_delete_all_students', { p_pin: pin }),
   saveDecor: (pin, d) => call('fishtank_save_decor', { p_pin: pin, p_decor: { id: d.id, kind: d.kind, x: d.x, size: d.size || 1, flip: !!d.flip } }),
   deleteDecor: (pin, id) => call('fishtank_delete_decor', { p_pin: pin, p_id: id }),
   orderDecor: (pin, ids) => call('fishtank_order_decor', { p_pin: pin, p_ids: ids }),

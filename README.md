@@ -48,7 +48,8 @@ The build uses relative paths, so `dist/` can be hosted on GitHub Pages or any s
    then re-run the "Deploy to GitHub Pages" workflow.
 
 The PIN entered on the lock screen decides which aquarium opens. Each aquarium has its own students, decorations,
-title and max size. The one named `test` shows a "Test aquarium" badge.
+title and max size. The one named `test` shows a "Test aquarium" badge and a **Delete all fish** button (the database
+refuses that for every other aquarium).
 
 You can make as many aquariums as you like, e.g. one per class: `select fishtank_set_pin('ZZZZ', 'class-2b');`
 (names use a–z, 0–9, `-` and `_`; every aquarium needs a different PIN). To delete one and everything in it:

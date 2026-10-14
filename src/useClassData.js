@@ -166,6 +166,12 @@ export function useClassData({ onRemoteFeeds } = {}) {
       setStudents(ss => ss.filter(s => s.id !== id));
       write(p => api.deleteStudent(p, id));
     },
+    // Test aquarium only (the server refuses it for any other aquarium).
+    removeAllStudents: () => {
+      dataRef.current.students.forEach(s => cancel('student:' + s.id));
+      setStudents(() => []);
+      write(p => api.deleteAllStudents(p));
+    },
     changeFood: (id, delta) => {
       setStudents(ss => ss.map(s => s.id === id ? { ...s, food: Math.max(0, s.food + delta) } : s));
       write(p => api.addFood(p, id, delta));

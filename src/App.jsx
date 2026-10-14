@@ -6,7 +6,7 @@ import Tank from './components/Tank.jsx';
 import PinScreen from './components/PinScreen.jsx';
 import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
-import ResetDialog from './components/ResetDialog.jsx';
+import ConfirmDialog from './components/ConfirmDialog.jsx';
 import FishEditor from './components/FishEditor.jsx';
 
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
@@ -39,6 +39,7 @@ export default function App() {
   const [selDecor, setSelDecor] = useState(null);
   const [newName, setNewName] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
 
   const { students, decor, lang } = data;
   const tab = phone ? 'list' : data.tab;
@@ -193,6 +194,9 @@ export default function App() {
                 />
               </label>
               <button className="btn-outline small" onClick={() => setResetOpen(true)}>{L.resetSizes}</button>
+              {data.tank === 'test' && students.length > 0 && (
+                <button className="btn-outline small danger" onClick={() => setClearOpen(true)}>{L.deleteAll}</button>
+              )}
             </div>
           </div>
 
@@ -245,9 +249,22 @@ export default function App() {
         </div>
 
         {adding && <FishEditor L={L} onCancel={() => setAdding(false)} onSave={addFromPopup} />}
-        {resetOpen && (
-          <ResetDialog
+        {clearOpen && (
+          <ConfirmDialog
             L={L}
+            title={L.deleteAllTitle}
+            body={L.deleteAllBody}
+            confirmLabel={L.deleteAllConfirm}
+            onCancel={() => setClearOpen(false)}
+            onConfirm={() => { cls.removeAllStudents(); closeEdit(); setClearOpen(false); }}
+          />
+        )}
+        {resetOpen && (
+          <ConfirmDialog
+            L={L}
+            title={L.resetTitle}
+            body={L.resetBody}
+            confirmLabel={L.resetConfirm}
             onCancel={() => setResetOpen(false)}
             onConfirm={() => { cls.resetFood(); setResetOpen(false); }}
           />
