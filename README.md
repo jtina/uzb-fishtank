@@ -17,9 +17,10 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
   other devices within a few seconds (at most 15). When a fish is fed on another device (e.g. a phone), the food drops
   in this tank too and the fish eats it.
 - **Phone view:** on a phone the page is a remote control: just the student list with **+1** and **Feed everyone**,
+  the names button (it switches names on the class screen),
   and **+ Add** opens a popup to pick the new student's fish. The tank and the Decorate tab are left out.
 
-Students, feeds, decorations, the class title and the max size are shared. Language, look, names and the
+Students, feeds, decorations, the class title, the max size and the names setting are shared. Language, look and the
 open tab are each device's own choice.
 
 ## Development

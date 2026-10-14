@@ -19,7 +19,7 @@ function initialData(sess) {
 
 /**
  * The class data (students, decorations, title, max size) plus this device's own settings
- * (language, look, names, tab).
+ * (language, look, tab). The names setting (always / on hover) is shared too, so a phone can switch it.
  *
  * Changes apply on screen right away. With Supabase configured they are also sent to the server, and
  * changes from other devices are pulled in. Without it, everything stays in this browser.
@@ -57,6 +57,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     decor: snap.decor,
     title: snap.title || DEFAULT_TITLES[0],
     maxFeed: snap.maxFeed,
+    names: snap.names || d.names,
   }));
 
   const lock = () => {
@@ -189,6 +190,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
       write(p => api.orderDecor(p, a.map(d => d.id)));
     },
 
+    setNames: names => { setData(d => ({ ...d, names })); write(p => api.saveNames(p, names)); },
     setTitle: title => { setData(d => ({ ...d, title })); later('config', 700, saveConfig); },
     setMaxFeed: raw => {
       setData(d => ({ ...d, maxFeed: raw }));

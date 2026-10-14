@@ -130,15 +130,13 @@ export default function App() {
             <div className="controls">
               <LangSwitch lang={lang} onLang={setLang} />
               {!phone && (
-                <>
-                  <div className="chips">
-                    {LOOKS.map(k => (
-                      <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => cls.setPrefs({ look: k })}>{L[k]}</button>
-                    ))}
-                  </div>
-                  <button className="pill" onClick={() => cls.setPrefs({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
-                </>
+                <div className="chips">
+                  {LOOKS.map(k => (
+                    <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => cls.setPrefs({ look: k })}>{L[k]}</button>
+                  ))}
+                </div>
               )}
+              <button className="pill" onClick={() => cls.setNames(alwaysNames ? 'hover' : 'always')}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
               <button className="pill" onClick={lockNow}>{L.lock}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>

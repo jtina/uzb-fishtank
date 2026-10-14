@@ -62,7 +62,6 @@ const Tank = forwardRef(function Tank(props, ref) {
   const eat = (s, p, f) => {
     removePellet(p);
     f.show = performance.now() + 2500;
-    f.gulp = 1;
     if (!p.remote) live.current.onAte(s.id);
     popup(f.x, f.y - 30 * f.sc - 30, '+1', 22);
     for (let i = 0; i < 3; i++) setTimeout(() => bubble(f.x + 20 * f.dir, f.y - 8, 6 + i * 2), i * 120);
@@ -89,7 +88,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         const base = growScale(Math.max(0, s.food - unseen), maxFeed), target = focus ? Math.max(2, base * 1.4) : base;
         let f = sim.current[s.id];
         if (!f) {
-          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, gulp: 0 };
+          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
           retarget(f, W, TOP, bottom);
         }
         const p = pellets.current.find(q => q.fishId === s.id);
@@ -109,19 +108,22 @@ const Tank = forwardRef(function Tank(props, ref) {
           if (Math.hypot(ax - f.x, ay - f.y) < 3) { f.x = ax; f.y = ay; }
           else { f.x += (ax - f.x) * 0.12 * dt; f.y += (ay - f.y) * 0.12 * dt; }
           f.vx = 0; f.vy = 0; f.dir = 1;
-        } else if (Math.abs(f.vx) > 0.12) f.dir = f.vx > 0 ? 1 : -1;
+        } else if (p && Math.abs(dx) > 6) f.dir = dx > 0 ? 1 : -1; // face the food
+        else if (Math.abs(f.vx) > 0.12) f.dir = f.vx > 0 ? 1 : -1;
         f.sc += (target - f.sc) * 0.05 * dt;
-        f.gulp = Math.max(0, f.gulp - 0.035 * dt);
-        const sc = f.sc * (1 + 0.14 * Math.sin(Math.PI * f.gulp)); // quick swell when it eats
         if (p && d < 14 + 22 * f.sc) eat(s, p, f);
         const bob = frozen ? 0 : Math.sin(now / 450 + f.ph) * 3;
-        const tilt = frozen ? 0 : Math.max(-14, Math.min(14, f.vy * 10));
+        // Nose up or down: toward the food (up to 45°) while chasing it, otherwise a little with the swim direction.
+        // Positive angles turn the nose down; flipped (left-facing) fish need the opposite rotation.
+        const nose = frozen ? 0 : p ? Math.max(-45, Math.min(45, Math.atan2(dy, Math.abs(dx)) * 180 / Math.PI)) : Math.max(-14, Math.min(14, f.vy * 10));
+        f.tilt += (nose * f.dir - f.tilt) * Math.min(1, 0.12 * dt);
+        const tilt = f.tilt;
         el.style.transform = `translate(${f.x}px,${f.y + bob}px)`;
         el.style.zIndex = focus ? '40' : String(Math.round(f.sc * 10));
         el.style.pointerEvents = decorating ? 'none' : 'auto';
         el.style.opacity = decorating ? '0.5' : '1';
         const body = el.firstChild, lab = el.lastChild;
-        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * sc},${sc})`;
+        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * f.sc},${f.sc})`;
         lab.style.transform = `translate(-50%,${-(30 * f.sc + 34)}px)`;
         lab.style.opacity = (focus || alwaysNames || hovered.current === s.id || now < f.show) ? '1' : '0';
       }

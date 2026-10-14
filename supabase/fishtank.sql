@@ -24,6 +24,7 @@ create table if not exists public.fishtank_tanks (
   pin_hash text,
   title text,
   max_feed int not null default 50,
+  names text not null default 'hover' check (names in ('hover', 'always')),
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -39,6 +40,7 @@ begin
     drop table public.fishtank_config;
   end if;
 end $$;
+alter table public.fishtank_tanks add column if not exists names text not null default 'hover' check (names in ('hover', 'always'));
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -149,6 +151,7 @@ begin
     'tank', v_tank,
     'title', (select title from fishtank_tanks where id = v_tank),
     'maxFeed', (select max_feed from fishtank_tanks where id = v_tank),
+    'names', (select names from fishtank_tanks where id = v_tank),
     'students', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'type', type, 'color', color, 'food', food) order by created_at, id) from fishtank_students where tank = v_tank), '[]'::jsonb),
     'decor', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'x', x, 'size', size, 'flip', flip) order by z, id) from fishtank_decor where tank = v_tank), '[]'::jsonb)
   );
@@ -297,6 +300,22 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Whether fish names show always or only on hover / tap; shared so a phone can switch it on the class screen.
+create or replace function public.fishtank_save_names(p_pin text, p_names text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  update fishtank_tanks set names = case when p_names = 'always' then 'always' else 'hover' end, updated_at = now()
+  where id = v_tank;
+  return jsonb_build_object('ok', true);
+end $$;
+
 -- ---------- Permissions ----------
 
 revoke all on function public._fishtank_auth(text) from public, anon, authenticated;
@@ -311,6 +330,7 @@ revoke all on function public.fishtank_save_decor(text, jsonb) from public;
 revoke all on function public.fishtank_delete_decor(text, text) from public;
 revoke all on function public.fishtank_order_decor(text, text[]) from public;
 revoke all on function public.fishtank_save_config(text, text, int) from public;
+revoke all on function public.fishtank_save_names(text, text) from public;
 
 grant execute on function public.fishtank_load(text) to anon, authenticated;
 grant execute on function public.fishtank_save_student(text, jsonb) to anon, authenticated;
@@ -321,3 +341,4 @@ grant execute on function public.fishtank_save_decor(text, jsonb) to anon, authe
 grant execute on function public.fishtank_delete_decor(text, text) to anon, authenticated;
 grant execute on function public.fishtank_order_decor(text, text[]) to anon, authenticated;
 grant execute on function public.fishtank_save_config(text, text, int) to anon, authenticated;
+grant execute on function public.fishtank_save_names(text, text) to anon, authenticated;
