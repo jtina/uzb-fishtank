@@ -130,7 +130,8 @@ const Tank = forwardRef(function Tank(props, ref) {
         const body = el.firstChild, lab = el.lastChild;
         body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * f.sc},${f.sc})`;
         lab.style.transform = `translate(-50%,${-(30 * f.sc + 34)}px)`;
-        lab.style.opacity = (focus || alwaysNames || hovered.current === s.id || now < f.show) ? '1' : '0';
+        // The name shows from the moment food is dropped for a fish until a moment after it eats.
+        lab.style.opacity = (focus || alwaysNames || p || hovered.current === s.id || now < f.show) ? '1' : '0';
       }
       for (const id of Object.keys(sim.current)) if (!ids[id]) delete sim.current[id];
       for (const p of pellets.current.slice()) {
