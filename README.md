@@ -8,7 +8,10 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
   Front / Back / Flip / Remove (double-click also flips).
-- **Max size:** set how many feeds make a fish full size. **Reset sizes** sets every feed count to 0.
+- **Settings (⚙, desktop and phone):** for the open aquarium only: the smallest and biggest fish size, how many feeds
+  it takes to reach the biggest size, swim speed (with a reset to the defaults), export of the fish list as a CSV file
+  for Excel (with or without feeds), import from such a file (only a `name` column is needed, so a class list typed in
+  Excel works), **Reset sizes** (all feeds back to 0) and **Delete all fish** (this aquarium only). Both ask first.
 - **Full screen:** the button in the tank's top-right corner shows just the tank (Esc also exits). In full screen,
   double-click a decoration to move, resize, flip, layer or remove it; tap the water when done.
 - **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover. There are no sounds.
@@ -21,7 +24,7 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
   the look and names buttons (they switch the class screen),
   and **+ Add** opens a popup to pick the new student's fish. The tank and the Decorate tab are left out.
 
-Students, feeds, decorations, the class title, the max size and the look and names settings are shared. Language and the
+Students, feeds, decorations, the class title, the Settings values and the look and names settings are shared. Language and the
 open tab are each device's own choice.
 
 ## Development
@@ -48,8 +51,7 @@ The build uses relative paths, so `dist/` can be hosted on GitHub Pages or any s
    then re-run the "Deploy to GitHub Pages" workflow.
 
 The PIN entered on the lock screen decides which aquarium opens. Each aquarium has its own students, decorations,
-title and max size. The one named `test` shows a "Test aquarium" badge and a **Delete all fish** button (the database
-refuses that for every other aquarium).
+title and settings. The one named `test` shows a "Test aquarium" badge.
 
 You can make as many aquariums as you like, e.g. one per class: `select fishtank_set_pin('ZZZZ', 'class-2b');`
 (names use a–z, 0–9, `-` and `_`; every aquarium needs a different PIN). To delete one and everything in it:

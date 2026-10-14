@@ -25,7 +25,6 @@ button{font-family:inherit}
 .feed-all:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.2)}
 .btn-outline{font-size:17px;font-weight:600;padding:12px 20px;min-height:48px;border-radius:14px;border:2px solid var(--rowBorder);background:transparent;color:var(--ink);cursor:pointer}
 .btn-outline.small{font-size:15px;padding:8px 14px;min-height:44px;border-radius:12px}
-.panel-tools .btn-outline.small{font-size:14px;padding:8px 12px;min-height:40px;white-space:nowrap}
 .btn-outline.danger{color:#D13B40}
 .btn-danger{font-size:17px;font-weight:600;padding:12px 20px;min-height:48px;border-radius:14px;border:none;background:#E5484D;color:#FFFFFF;cursor:pointer}
 .btn-primary{font-size:17px;font-weight:600;padding:0 18px;min-height:48px;border-radius:14px;border:none;background:var(--btnBg);color:var(--btnInk);cursor:pointer}
@@ -70,10 +69,7 @@ button{font-family:inherit}
 /* ---------- Side panel ---------- */
 .panel{flex:0 1 390px;min-width:300px;background:var(--panelBg);border:3px solid var(--border);border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 40px)}
 .panel-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.panel-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .count{font-size:16px;color:var(--sub);font-weight:500;white-space:nowrap}
-.max-feed{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--sub);white-space:nowrap}
-.max-feed .input{width:58px;font-size:16px;font-weight:600;padding:8px 6px;min-height:40px;text-align:center}
 .add-row{display:flex;gap:8px}
 .list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin:0 -6px;padding:2px 6px}
 
@@ -143,3 +139,23 @@ button{font-family:inherit}
 .fish-editor{max-height:calc(100vh - 40px);overflow-y:auto}
 .fish-preview{display:flex;justify-content:center;padding:8px;border-radius:16px;background:var(--tankBg)}
 .fish-preview img{width:150px;height:100px;object-fit:contain}
+
+/* ---------- Settings ---------- */
+.dialog.settings{max-width:520px;max-height:calc(100vh - 40px);overflow-y:auto;gap:4px}
+.settings-section{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:2px dashed var(--rowBorder)}
+.settings-head{font-size:18px;font-weight:700}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:16px;font-weight:600;color:var(--sub)}
+.setting-input{display:flex;align-items:center;gap:6px;color:var(--ink)}
+.setting-input .input{width:86px;text-align:center;font-weight:600;padding:8px 6px}
+.speed-value{font-size:17px;font-weight:700;color:var(--ink)}
+.speed-slider{width:100%;accent-color:var(--accent)}
+.settings .btn-outline.small{align-self:flex-start}
+.settings-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.settings-hint{font-size:14px;color:var(--sub);font-weight:500;text-wrap:pretty}
+.size-preview{display:flex;align-items:flex-end;justify-content:space-around;gap:12px;padding:12px;border-radius:16px;background:var(--tankBg);min-height:120px;overflow:hidden}
+.size-preview>div{display:flex;flex-direction:column;align-items:center;gap:6px}
+.size-preview img{height:auto}
+.size-preview span{font-size:13px;font-weight:600;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.9);color:#2B3A4A}
+.btn-outline:disabled{opacity:.45;cursor:default}
+.check-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600;color:var(--ink)}
+.check-row input{width:22px;height:22px;accent-color:var(--accent)}

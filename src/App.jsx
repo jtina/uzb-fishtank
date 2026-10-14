@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, THEMES, TYPES, maxFeedOf, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, fishSettingsOf, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
 import Tank from './components/Tank.jsx';
 import PinScreen from './components/PinScreen.jsx';
 import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
-import ConfirmDialog from './components/ConfirmDialog.jsx';
+import SettingsDialog from './components/SettingsDialog.jsx';
 import FishEditor from './components/FishEditor.jsx';
 
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
@@ -38,8 +38,7 @@ export default function App() {
   const [confirm, setConfirm] = useState(null);
   const [selDecor, setSelDecor] = useState(null);
   const [newName, setNewName] = useState('');
-  const [resetOpen, setResetOpen] = useState(false);
-  const [clearOpen, setClearOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { students, decor, lang } = data;
   const tab = phone ? 'list' : data.tab;
@@ -47,7 +46,7 @@ export default function App() {
   const look = data.look || 'sunny';
   const t = THEMES[look] || THEMES.sunny;
   const alwaysNames = (data.names || 'hover') === 'always';
-  const maxFeed = maxFeedOf(data.maxFeed);
+  const fishSettings = fishSettingsOf(data);
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).
@@ -139,6 +138,7 @@ export default function App() {
                 ))}
               </div>
               <button className="pill" onClick={() => cls.setNames(alwaysNames ? 'hover' : 'always')}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
+              <button className="pill" onClick={() => setSettingsOpen(true)} aria-label={L.settings}>⚙ {L.settings}</button>
               <button className="pill" onClick={lockNow}>{L.lock}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
@@ -153,7 +153,7 @@ export default function App() {
             editing={editing}
             selDecor={selDecor}
             alwaysNames={alwaysNames}
-            maxFeed={maxFeed}
+            fishSettings={fishSettings}
             theme={t}
             L={L}
             isEmpty={students.length === 0}
@@ -178,26 +178,7 @@ export default function App() {
                 ))}
               </div>
             )}
-            <div className="panel-tools">
-              <div className="count">{L.fish(students.length)}</div>
-              <label className="max-feed">
-                {L.maxAt}
-                <input
-                  type="number"
-                  min="2"
-                  max="999"
-                  className="input"
-                  value={data.maxFeed}
-                  aria-label={L.maxAt}
-                  onChange={e => cls.setMaxFeed(e.target.value)}
-                  onBlur={cls.commitMaxFeed}
-                />
-              </label>
-              <button className="btn-outline small" onClick={() => setResetOpen(true)}>{L.resetSizes}</button>
-              {data.tank === 'test' && students.length > 0 && (
-                <button className="btn-outline small danger" onClick={() => setClearOpen(true)}>{L.deleteAll}</button>
-              )}
-            </div>
+            <div className="count">{L.fish(students.length)}</div>
           </div>
 
           {tab === 'list' && (
@@ -249,26 +230,7 @@ export default function App() {
         </div>
 
         {adding && <FishEditor L={L} onCancel={() => setAdding(false)} onSave={addFromPopup} />}
-        {clearOpen && (
-          <ConfirmDialog
-            L={L}
-            title={L.deleteAllTitle}
-            body={L.deleteAllBody}
-            confirmLabel={L.deleteAllConfirm}
-            onCancel={() => setClearOpen(false)}
-            onConfirm={() => { cls.removeAllStudents(); closeEdit(); setClearOpen(false); }}
-          />
-        )}
-        {resetOpen && (
-          <ConfirmDialog
-            L={L}
-            title={L.resetTitle}
-            body={L.resetBody}
-            confirmLabel={L.resetConfirm}
-            onCancel={() => setResetOpen(false)}
-            onConfirm={() => { cls.resetFood(); setResetOpen(false); }}
-          />
-        )}
+        {settingsOpen && <SettingsDialog L={L} cls={cls} onClose={() => { cls.commitFishSettings(); setSettingsOpen(false); }} />}
       </div>
     </div>
   );

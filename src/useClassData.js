@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { SESSION_KEY, maxFeedOf, pinMatches } from './constants.js';
+import { DEFAULT_MAX_SIZE, DEFAULT_MIN_SIZE, DEFAULT_SPEED, SESSION_KEY, fishSettingsOf, maxFeedOf, pinMatches } from './constants.js';
 import { DEFAULT_TITLES } from './i18n.js';
 import { loadSaved, save } from './storage.js';
 import { api, remoteEnabled, watchChanges } from './remote.js';
@@ -14,7 +14,7 @@ const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); 
 function initialData(sess) {
   const d = loadSaved();
   if (!remoteEnabled || !sess || d.tank === sess.tank) return d;
-  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0], look: null, names: null };
+  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0], look: null, names: null, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
 }
 
 /**
@@ -57,9 +57,12 @@ export function useClassData({ onRemoteFeeds } = {}) {
     decor: snap.decor,
     title: snap.title || DEFAULT_TITLES[0],
     maxFeed: snap.maxFeed,
-    // Each aquarium has its own look and names setting; never carry them over from another one.
+    // Each aquarium has its own settings; never carry them over from another one.
     names: snap.names || 'hover',
     look: snap.look || 'sunny',
+    minSize: snap.minSize ?? DEFAULT_MIN_SIZE,
+    maxSize: snap.maxSize ?? DEFAULT_MAX_SIZE,
+    speed: snap.speed ?? DEFAULT_SPEED,
   }));
 
   const lock = () => {
@@ -166,7 +169,15 @@ export function useClassData({ onRemoteFeeds } = {}) {
       setStudents(ss => ss.filter(s => s.id !== id));
       write(p => api.deleteStudent(p, id));
     },
-    // Test aquarium only (the server refuses it for any other aquarium).
+    // Adds many students at once (from an imported file). Feeds are set with add_food, the only way feeds change.
+    importStudents: list => {
+      setStudents(ss => ss.concat(list));
+      write(async p => {
+        await Promise.all(list.map(s => api.saveStudent(p, s)));
+        await Promise.all(list.filter(s => s.food > 0).map(s => api.addFood(p, s.id, s.food)));
+      });
+    },
+    // Only this aquarium's students; the server can't reach other aquariums with this PIN.
     removeAllStudents: () => {
       dataRef.current.students.forEach(s => cancel('student:' + s.id));
       setStudents(() => []);
@@ -201,13 +212,16 @@ export function useClassData({ onRemoteFeeds } = {}) {
     setLook: look => { setData(d => ({ ...d, look })); write(p => api.saveLook(p, look)); },
     setNames: names => { setData(d => ({ ...d, names })); write(p => api.saveNames(p, names)); },
     setTitle: title => { setData(d => ({ ...d, title })); later('config', 700, saveConfig); },
-    setMaxFeed: raw => {
-      setData(d => ({ ...d, maxFeed: raw }));
-      if (parseInt(raw, 10) >= 2) later('config', 900, saveConfig);
+    // Size range, swim speed and feeds-to-max, typed in Settings. Values may be half-typed while editing.
+    setFishSettings: patch => {
+      setData(d => ({ ...d, ...patch }));
+      if ('maxFeed' in patch) { if (parseInt(patch.maxFeed, 10) >= 2) later('config', 900, saveConfig); }
+      else later('fish', 700, p => api.saveFishSettings(p, fishSettingsOf(dataRef.current)));
     },
-    commitMaxFeed: () => {
-      setData(d => ({ ...d, maxFeed: maxFeedOf(d.maxFeed) }));
+    commitFishSettings: () => {
+      setData(d => ({ ...d, ...fishSettingsOf(d) }));
       later('config', 0, saveConfig);
+      later('fish', 0, p => api.saveFishSettings(p, fishSettingsOf(dataRef.current)));
     },
   };
 

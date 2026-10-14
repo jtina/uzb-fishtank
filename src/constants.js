@@ -78,9 +78,19 @@ export function maxFeedOf(raw) {
   const v = parseInt(raw, 10);
   return v >= 2 ? Math.min(v, 999) : DEFAULT_MAX_FEED;
 }
-// Every feed adds 1/maxFeed of the starting size, so at max size a fish is twice as big as a new one.
-const START_SCALE = 0.75;
-export const growScale = (food, maxFeed) => START_SCALE * (1 + Math.min(food, maxFeed) / maxFeed);
+// Fish size (1 = the picture's normal size) grows by the same step with every feed, from minSize at 0 feeds
+// to maxSize at maxFeed feeds. All three, plus swim speed, are set per aquarium in Settings.
+export const DEFAULT_MIN_SIZE = 0.75, DEFAULT_MAX_SIZE = 1.5, DEFAULT_SPEED = 1;
+export const SIZE_LIMITS = { min: 0.2, max: 4 }, SPEED_LIMITS = { min: 0.25, max: 3 };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+// Turns possibly half-typed values into usable ones.
+export function fishSettingsOf(d) {
+  const num = (v, dflt) => { const n = parseFloat(v); return Number.isFinite(n) ? n : dflt; };
+  const minSize = clamp(num(d.minSize, DEFAULT_MIN_SIZE), SIZE_LIMITS.min, SIZE_LIMITS.max);
+  const maxSize = clamp(num(d.maxSize, DEFAULT_MAX_SIZE), minSize, SIZE_LIMITS.max);
+  return { minSize, maxSize, maxFeed: maxFeedOf(d.maxFeed), speed: clamp(num(d.speed, DEFAULT_SPEED), SPEED_LIMITS.min, SPEED_LIMITS.max) };
+}
+export const growScale = (food, { minSize, maxSize, maxFeed }) => minSize + (maxSize - minSize) * Math.min(food, maxFeed) / maxFeed;
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 

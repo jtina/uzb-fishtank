@@ -26,6 +26,9 @@ create table if not exists public.fishtank_tanks (
   max_feed int not null default 50,
   names text not null default 'hover' check (names in ('hover', 'always')),
   look text not null default 'sunny' check (look in ('sunny', 'night')),
+  min_size real not null default 0.75,
+  max_size real not null default 1.5,
+  speed real not null default 1,
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -43,6 +46,9 @@ begin
 end $$;
 alter table public.fishtank_tanks add column if not exists names text not null default 'hover' check (names in ('hover', 'always'));
 alter table public.fishtank_tanks add column if not exists look text not null default 'sunny' check (look in ('sunny', 'night'));
+alter table public.fishtank_tanks add column if not exists min_size real not null default 0.75;
+alter table public.fishtank_tanks add column if not exists max_size real not null default 1.5;
+alter table public.fishtank_tanks add column if not exists speed real not null default 1;
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -155,6 +161,9 @@ begin
     'maxFeed', (select max_feed from fishtank_tanks where id = v_tank),
     'names', (select names from fishtank_tanks where id = v_tank),
     'look', (select look from fishtank_tanks where id = v_tank),
+    'minSize', (select min_size from fishtank_tanks where id = v_tank),
+    'maxSize', (select max_size from fishtank_tanks where id = v_tank),
+    'speed', (select speed from fishtank_tanks where id = v_tank),
     'students', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'type', type, 'color', color, 'food', food) order by created_at, id) from fishtank_students where tank = v_tank), '[]'::jsonb),
     'decor', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'x', x, 'size', size, 'flip', flip) order by z, id) from fishtank_decor where tank = v_tank), '[]'::jsonb)
   );
@@ -228,7 +237,7 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
--- Removes every student from the aquarium. Only allowed for the test aquarium.
+-- Removes every student from this PIN's aquarium (never touches other aquariums).
 create or replace function public.fishtank_delete_all_students(p_pin text)
 returns jsonb
 language plpgsql
@@ -239,7 +248,6 @@ declare v_tank text; v_err text;
 begin
   select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  if v_tank <> 'test' then return jsonb_build_object('error', 'not_allowed'); end if;
   delete from fishtank_students where tank = v_tank;
   return jsonb_build_object('ok', true);
 end $$;
@@ -351,6 +359,27 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Fish size range (1 = normal picture size) and swim speed for this aquarium.
+create or replace function public.fishtank_save_fish_settings(p_pin text, p_min_size real, p_max_size real, p_speed real)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text; v_min real;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  v_min := greatest(0.2, least(4, coalesce(p_min_size, 0.75)));
+  update fishtank_tanks
+  set min_size = v_min,
+      max_size = greatest(v_min, least(4, coalesce(p_max_size, 1.5))),
+      speed = greatest(0.25, least(3, coalesce(p_speed, 1))),
+      updated_at = now()
+  where id = v_tank;
+  return jsonb_build_object('ok', true);
+end $$;
+
 -- ---------- Permissions ----------
 
 revoke all on function public._fishtank_auth(text) from public, anon, authenticated;
@@ -368,6 +397,7 @@ revoke all on function public.fishtank_order_decor(text, text[]) from public;
 revoke all on function public.fishtank_save_config(text, text, int) from public;
 revoke all on function public.fishtank_save_names(text, text) from public;
 revoke all on function public.fishtank_save_look(text, text) from public;
+revoke all on function public.fishtank_save_fish_settings(text, real, real, real) from public;
 
 grant execute on function public.fishtank_load(text) to anon, authenticated;
 grant execute on function public.fishtank_save_student(text, jsonb) to anon, authenticated;
@@ -381,6 +411,7 @@ grant execute on function public.fishtank_order_decor(text, text[]) to anon, aut
 grant execute on function public.fishtank_save_config(text, text, int) to anon, authenticated;
 grant execute on function public.fishtank_save_names(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_look(text, text) to anon, authenticated;
+grant execute on function public.fishtank_save_fish_settings(text, real, real, real) to anon, authenticated;
 
 -- Make the API see new or changed functions right away.
 notify pgrst, 'reload schema';

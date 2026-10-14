@@ -79,7 +79,7 @@ const Tank = forwardRef(function Tank(props, ref) {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(3, (now - last) / 16.67); last = now;
       const tank = tankRef.current; if (!tank) return;
-      const { students, focusId, decorating, alwaysNames, maxFeed } = live.current;
+      const { students, focusId, decorating, alwaysNames, fishSettings } = live.current;
       const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90;
       const ids = {};
       for (const s of students) {
@@ -88,14 +88,14 @@ const Tank = forwardRef(function Tank(props, ref) {
         const focus = s.id === focusId;
         // Feeds from another device are already in s.food; hold that growth back until the fish eats them.
         const unseen = pellets.current.filter(q => q.fishId === s.id && q.remote).length;
-        const base = growScale(Math.max(0, s.food - unseen), maxFeed), target = focus ? Math.max(2, base * 1.4) : base;
+        const base = growScale(Math.max(0, s.food - unseen), fishSettings), target = focus ? Math.max(2, base * 1.4) : base;
         let f = sim.current[s.id];
         if (!f) {
           f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
           retarget(f, W, TOP, bottom);
         }
         const p = pellets.current.find(q => q.fishId === s.id);
-        let tx = f.tx, ty = f.ty, sp = f.sp;
+        let tx = f.tx, ty = f.ty, sp = f.sp * fishSettings.speed; // speed setting: normal swimming only
         if (p) { tx = p.x; ty = p.y; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
         const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
         // Chasing food: the farther away it is (e.g. from the bottom of the tank), the faster the fish swims.
