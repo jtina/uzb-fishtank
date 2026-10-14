@@ -95,8 +95,8 @@ export const THEMES = {
   },
   night: {
     font: "'Fredoka',sans-serif", pageBg: '#0E1430', ink: '#EEF1FF', sub: '#A3ABD6', panelBg: '#161E42', border: '#2E3A78', rim: '#2E3A78',
-    tankBg: 'linear-gradient(#173E74,#0B1F47 70%,#081535)',
-    sand: '#232A55', sandEdge: '#2E3668', sandDot: 'rgba(255,255,255,.08)', rays: '1',
+    tankBg: `url(${asset('tank-bg-night.webp')}) center bottom / cover no-repeat, #142A6B`,
+    sand: 'transparent', sandEdge: 'transparent', sandDot: 'transparent', rays: '0',
     rock: '#2F3769', rock2: '#262D5A', rockLine: '#1A2048',
     accent: '#7CF2D2', accentShadow: '#3FBFA0', accentInk: '#0E1430',
     rowBg: '#1C2550', rowBorder: '#2A346A', rowOpen: '#7CF2D2', inputBg: '#0F1736', inputBorder: '#2E3A78',

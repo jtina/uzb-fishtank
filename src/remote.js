@@ -36,6 +36,7 @@ export const api = {
   orderDecor: (pin, ids) => call('fishtank_order_decor', { p_pin: pin, p_ids: ids }),
   saveConfig: (pin, title, maxFeed) => call('fishtank_save_config', { p_pin: pin, p_title: title, p_max_feed: maxFeed }),
   saveNames: (pin, names) => call('fishtank_save_names', { p_pin: pin, p_names: names }),
+  saveLook: (pin, look) => call('fishtank_save_look', { p_pin: pin, p_look: look }),
 };
 
 // Devices ping each other over a broadcast channel when they change something; the ping carries no data,
