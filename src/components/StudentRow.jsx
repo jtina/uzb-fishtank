@@ -1,10 +1,7 @@
 import { COLORS, TYPES } from '../constants.js';
 
-export default function StudentRow({ s, L, stages, stage, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
+export default function StudentRow({ s, L, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
   const col = COLORS[s.color] || COLORS[0];
-  const cur = stages[stage], next = stages[stage + 1];
-  const span = next ? next.min - cur.min : 0, cnt = Math.min(span, 10);
-  const filled = span ? Math.floor((s.food - cur.min) / span * cnt) : 0;
 
   return (
     <div data-row-id={s.id} className={'row' + (open ? ' open' : '')}>
@@ -14,12 +11,7 @@ export default function StudentRow({ s, L, stages, stage, open, confirming, onTo
           <div className="row-text">
             <div className="row-name">{s.name}</div>
             <div className="row-meta">
-              <span>{L.types[s.type] || L.types.spotty} · {next ? L.stages[stage] : L.maxSize}</span>
-              {next && (
-                <div className="pips">
-                  {Array.from({ length: cnt }, (_, i) => <div key={i} className={'pip' + (i < filled ? ' on' : '')} />)}
-                </div>
-              )}
+              <span>{L.types[s.type] || L.types.spotty}</span>
             </div>
           </div>
         </div>

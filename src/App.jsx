@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, THEMES, TYPES, maxFeedOf, stageOf, stagesFor, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, maxFeedOf, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
 import Tank from './components/Tank.jsx';
@@ -7,24 +7,46 @@ import PinScreen from './components/PinScreen.jsx';
 import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
 import ResetDialog from './components/ResetDialog.jsx';
+import FishEditor from './components/FishEditor.jsx';
+
+// Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
+const PHONE = '(max-width: 640px)';
+function usePhone() {
+  const [phone, setPhone] = useState(() => window.matchMedia(PHONE).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE), onChange = () => setPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return phone;
+}
 
 export default function App() {
-  const cls = useClassData();
+  const tankApi = useRef(null), listRef = useRef(null);
+  // Feeds made on another device (e.g. a phone) drop food here too, so the class sees the fish eat and grow.
+  const cls = useClassData({
+    onRemoteFeeds: fed => {
+      if (!tankApi.current) return;
+      let i = 0;
+      fed.forEach(({ id, n }) => { for (let k = 0; k < Math.min(n, 3); k++) setTimeout(() => tankApi.current && tankApi.current.dropFood(id, true), 120 * i++); });
+    },
+  });
+  const phone = usePhone();
+  const [adding, setAdding] = useState(false);
   const { data, unlocked } = cls;
   const [open, setOpen] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [selDecor, setSelDecor] = useState(null);
   const [newName, setNewName] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
-  const tankApi = useRef(null), listRef = useRef(null);
 
-  const { students, decor, tab, lang } = data;
+  const { students, decor, lang } = data;
+  const tab = phone ? 'list' : data.tab;
   const L = strings(lang);
   const look = data.look || 'sunny';
   const t = THEMES[look] || THEMES.sunny;
   const alwaysNames = (data.names || 'hover') === 'always';
   const maxFeed = maxFeedOf(data.maxFeed);
-  const stages = stagesFor(maxFeed);
 
   useEffect(() => { document.body.style.background = t.pageBg; }, [t.pageBg]);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
@@ -35,6 +57,7 @@ export default function App() {
   const scrollToRow = id => requestAnimationFrame(() => requestAnimationFrame(() => {
     const list = listRef.current; if (!list) return;
     const row = list.querySelector(`[data-row-id="${id}"]`); if (!row) return;
+    if (phone) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 8;
     list.scrollTo({ top, behavior: 'smooth' });
     const inp = row.querySelector('input'); if (inp) inp.focus({ preventScroll: true });
@@ -48,6 +71,13 @@ export default function App() {
     setNewName('');
     setOpen(id);
     setConfirm(null);
+    scrollToRow(id);
+  };
+
+  const addFromPopup = ({ name, type, color }) => {
+    const id = uid();
+    cls.addStudent({ id, name, type, color, food: 0 });
+    setAdding(false);
     scrollToRow(id);
   };
 
@@ -82,11 +112,11 @@ export default function App() {
   return (
     <div style={themeVars(t)}>
       {!unlocked && <PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} />}
-      <div className="app">
+      <div className={'app' + (phone ? ' phone' : '')}>
         <div className="main">
           <div className="header">
             <div className="title-block">
-              {data.tank && data.tank !== 'main' && <div className="test-badge">{L.testTank}</div>}
+              {data.tank === 'test' && <div className="test-badge">{L.testTank}</div>}
               <input
                 className="title-input"
                 value={title}
@@ -95,22 +125,26 @@ export default function App() {
                 onChange={e => cls.setTitle(e.target.value)}
                 onBlur={() => { if (!data.title.trim()) cls.setTitle(L.title); }}
               />
-              <div className="hint">{L.hint}</div>
+              {!phone && <div className="hint">{L.hint}</div>}
             </div>
             <div className="controls">
               <LangSwitch lang={lang} onLang={setLang} />
-              <div className="chips">
-                {LOOKS.map(k => (
-                  <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => cls.setPrefs({ look: k })}>{L[k]}</button>
-                ))}
-              </div>
-              <button className="pill" onClick={() => cls.setPrefs({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
+              {!phone && (
+                <>
+                  <div className="chips">
+                    {LOOKS.map(k => (
+                      <button key={k} className={'chip wide' + (k === look ? ' on' : '')} onClick={() => cls.setPrefs({ look: k })}>{L[k]}</button>
+                    ))}
+                  </div>
+                  <button className="pill" onClick={() => cls.setPrefs({ names: alwaysNames ? 'hover' : 'always' })}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
+                </>
+              )}
               <button className="pill" onClick={lockNow}>{L.lock}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
           </div>
           {cls.syncError && <div className="sync-error" role="status">{L.syncError}</div>}
-          <Tank
+          {!phone && <Tank
             ref={tankApi}
             students={students}
             decor={decor}
@@ -132,16 +166,18 @@ export default function App() {
             onMoveLayer={moveLayer}
             onFlipDecor={flipDecor}
             onRemoveDecor={removeDecor}
-          />
+          />}
         </div>
 
         <div className="panel">
           <div className="panel-top">
-            <div className="chips">
-              {[['list', L.students], ['decor', L.decorate]].map(([k, label]) => (
-                <button key={k} className={'chip tab' + (k === tab ? ' on' : '')} onClick={() => setTab(k)}>{label}</button>
-              ))}
-            </div>
+            {!phone && (
+              <div className="chips">
+                {[['list', L.students], ['decor', L.decorate]].map(([k, label]) => (
+                  <button key={k} className={'chip tab' + (k === tab ? ' on' : '')} onClick={() => setTab(k)}>{label}</button>
+                ))}
+              </div>
+            )}
             <div className="panel-tools">
               <div className="count">{L.fish(students.length)}</div>
               <label className="max-feed">
@@ -163,7 +199,9 @@ export default function App() {
 
           {tab === 'list' && (
             <>
-              <div className="add-row">
+              {phone ? (
+                <button className="btn-primary add-big" onClick={() => setAdding(true)}>+ {L.addFish}</button>
+              ) : <div className="add-row">
                 <input
                   className="input big"
                   value={newName}
@@ -172,15 +210,13 @@ export default function App() {
                   onKeyDown={e => { if (e.key === 'Enter') addStudent(); }}
                 />
                 <button className="btn-primary" onClick={addStudent}>{L.addFish}</button>
-              </div>
+              </div>}
               <div ref={listRef} className="list">
                 {rows.map(s => (
                   <StudentRow
                     key={s.id}
                     s={s}
                     L={L}
-                    stages={stages}
-                    stage={stageOf(s.food, stages)}
                     open={open === s.id}
                     confirming={confirm === s.id}
                     onToggle={() => { setOpen(open === s.id ? null : s.id); setConfirm(null); }}
@@ -209,6 +245,7 @@ export default function App() {
           )}
         </div>
 
+        {adding && <FishEditor L={L} onCancel={() => setAdding(false)} onSave={addFromPopup} />}
         {resetOpen && (
           <ResetDialog
             L={L}

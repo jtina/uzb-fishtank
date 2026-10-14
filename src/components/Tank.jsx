@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { decorOf, fishFilter, growScale, stageOf, stagesFor, typeOf } from '../constants.js';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { decorOf, fishFilter, growScale, typeOf } from '../constants.js';
 
 const TOP = 50;
 
@@ -45,15 +45,16 @@ const Tank = forwardRef(function Tank(props, ref) {
     fx.appendChild(el);
   };
 
-  const dropFood = id => {
+  // remote: the feed already happened on another device and is counted; only show the fish eating it.
+  const dropFood = (id, remote = false) => {
     const f = sim.current[id], fx = fxRef.current, tank = tankRef.current;
-    if (!f || !fx || !tank) { live.current.onAte(id); return; }
+    if (!f || !fx || !tank) { if (!remote) live.current.onAte(id); return; }
     const el = document.createElement('div');
     el.className = 'pellet';
     fx.appendChild(el);
     const W = tank.clientWidth;
     const x = Math.max(20, Math.min(W - 20, f.x + (Math.random() - 0.5) * 60));
-    pellets.current.push({ x, y: -10, floor: tank.clientHeight - 64, fishId: id, el, vy: 0.8 + Math.random() * 0.4 });
+    pellets.current.push({ x, y: -10, floor: tank.clientHeight - 64, fishId: id, el, vy: 0.8 + Math.random() * 0.4, remote });
   };
 
   const removePellet = p => { p.el.remove(); pellets.current = pellets.current.filter(q => q !== p); };
@@ -61,11 +62,9 @@ const Tank = forwardRef(function Tank(props, ref) {
   const eat = (s, p, f) => {
     removePellet(p);
     f.show = performance.now() + 2500;
-    const { L, maxFeed, onAte } = live.current, stages = stagesFor(maxFeed);
-    const before = stageOf(s.food, stages), after = stageOf(s.food + 1, stages);
-    onAte(s.id);
+    f.gulp = 1;
+    if (!p.remote) live.current.onAte(s.id);
     popup(f.x, f.y - 30 * f.sc - 30, '+1', 22);
-    if (after > before) setTimeout(() => { popup(f.x, f.y - 30 * f.sc - 60, L.now(L.stages[after]), 24); }, 250);
     for (let i = 0; i < 3; i++) setTimeout(() => bubble(f.x + 20 * f.dir, f.y - 8, 6 + i * 2), i * 120);
   };
 
@@ -85,10 +84,12 @@ const Tank = forwardRef(function Tank(props, ref) {
         ids[s.id] = 1;
         const el = fishEls.current.get(s.id); if (!el) continue;
         const focus = s.id === focusId;
-        const base = growScale(s.food, maxFeed), target = focus ? Math.max(2, base * 1.4) : base;
+        // Feeds from another device are already in s.food; hold that growth back until the fish eats them.
+        const unseen = pellets.current.filter(q => q.fishId === s.id && q.remote).length;
+        const base = growScale(Math.max(0, s.food - unseen), maxFeed), target = focus ? Math.max(2, base * 1.4) : base;
         let f = sim.current[s.id];
         if (!f) {
-          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0 };
+          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, gulp: 0 };
           retarget(f, W, TOP, bottom);
         }
         const p = pellets.current.find(q => q.fishId === s.id);
@@ -110,6 +111,8 @@ const Tank = forwardRef(function Tank(props, ref) {
           f.vx = 0; f.vy = 0; f.dir = 1;
         } else if (Math.abs(f.vx) > 0.12) f.dir = f.vx > 0 ? 1 : -1;
         f.sc += (target - f.sc) * 0.05 * dt;
+        f.gulp = Math.max(0, f.gulp - 0.035 * dt);
+        const sc = f.sc * (1 + 0.14 * Math.sin(Math.PI * f.gulp)); // quick swell when it eats
         if (p && d < 14 + 22 * f.sc) eat(s, p, f);
         const bob = frozen ? 0 : Math.sin(now / 450 + f.ph) * 3;
         const tilt = frozen ? 0 : Math.max(-14, Math.min(14, f.vy * 10));
@@ -118,7 +121,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         el.style.pointerEvents = decorating ? 'none' : 'auto';
         el.style.opacity = decorating ? '0.5' : '1';
         const body = el.firstChild, lab = el.lastChild;
-        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * f.sc},${f.sc})`;
+        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * sc},${sc})`;
         lab.style.transform = `translate(-50%,${-(30 * f.sc + 34)}px)`;
         lab.style.opacity = (focus || alwaysNames || hovered.current === s.id || now < f.show) ? '1' : '0';
       }
@@ -135,6 +138,20 @@ const Tank = forwardRef(function Tank(props, ref) {
     return () => { cancelAnimationFrame(raf); clearInterval(bt); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Full screen for the tank alone (e.g. on the smartboard). Esc also exits.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === tankRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  const canFullscreen = typeof document !== 'undefined' && !!document.fullscreenEnabled;
+  const toggleFullscreen = e => {
+    e.stopPropagation();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else tankRef.current.requestFullscreen().catch(() => {});
+  };
 
   const onFishTap = (e, id) => {
     e.stopPropagation();
@@ -275,6 +292,11 @@ const Tank = forwardRef(function Tank(props, ref) {
 
       <div ref={fxRef} className="fx" />
       {isEmpty && <div className="tank-empty">{L.empty}</div>}
+      {canFullscreen && (
+        <button className="fullscreen-btn" onClick={toggleFullscreen} aria-label={fullscreen ? L.exitFullscreen : L.fullscreen} title={fullscreen ? L.exitFullscreen : L.fullscreen}>
+          {fullscreen ? '✕' : '⛶'} <span>{fullscreen ? L.exitFullscreen : L.fullscreen}</span>
+        </button>
+      )}
       <div className="rim-top" />
       <div className="rim-bottom" />
       <div className="glass" />

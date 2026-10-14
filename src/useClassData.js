@@ -24,7 +24,10 @@ function initialData(sess) {
  * Changes apply on screen right away. With Supabase configured they are also sent to the server, and
  * changes from other devices are pulled in. Without it, everything stays in this browser.
  */
-export function useClassData() {
+// onRemoteFeeds([{ id, n }]) is called when another device fed fish (n feeds each), so they can be animated here.
+export function useClassData({ onRemoteFeeds } = {}) {
+  const remoteFeeds = useRef(onRemoteFeeds);
+  remoteFeeds.current = onRemoteFeeds;
   const [sess] = useState(() => (remoteEnabled ? parseSession(readSession()) : null));
   const [data, setData] = useState(() => initialData(sess));
   const [unlocked, setUnlocked] = useState(() => (remoteEnabled ? !!sess : readSession() === '1'));
@@ -71,7 +74,12 @@ export function useClassData() {
     const gen = writeGen.current;
     try {
       const snap = await api.load(pin.current);
-      if (!busy() && gen === writeGen.current) applySnapshot(snap);
+      if (!busy() && gen === writeGen.current) {
+        const before = new Map(dataRef.current.students.map(s => [s.id, s.food]));
+        const fed = snap.students.filter(s => before.has(s.id) && s.food > before.get(s.id)).map(s => ({ id: s.id, n: s.food - before.get(s.id) }));
+        applySnapshot(snap);
+        if (fed.length && remoteFeeds.current) remoteFeeds.current(fed);
+      }
       setSyncError(false);
     } catch (e) { onError(e); }
   };

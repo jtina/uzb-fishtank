@@ -75,18 +75,9 @@ export function maxFeedOf(raw) {
   const v = parseInt(raw, 10);
   return v >= 2 ? Math.min(v, 999) : DEFAULT_MAX_FEED;
 }
-// Stage names for the list and the "Now Big!" message: Little → Grown (half way) → Big (max).
-export function stagesFor(maxFeed) {
-  return [{ min: 0 }, { min: Math.max(1, Math.round(maxFeed / 2)) }, { min: maxFeed }];
-}
-// Fish size grows a little with every feed, from MIN_SCALE at 0 feeds to MAX_SCALE at max size.
-const MIN_SCALE = 0.6, MAX_SCALE = 1.5;
-export const growScale = (food, maxFeed) => MIN_SCALE + (MAX_SCALE - MIN_SCALE) * Math.min(food, maxFeed) / maxFeed;
-export function stageOf(food, stages) {
-  let i = 0;
-  stages.forEach((s, j) => { if (food >= s.min) i = j; });
-  return i;
-}
+// Every feed adds 1/maxFeed of the starting size, so at max size a fish is twice as big as a new one.
+const START_SCALE = 0.75;
+export const growScale = (food, maxFeed) => START_SCALE * (1 + Math.min(food, maxFeed) / maxFeed);
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -99,7 +90,7 @@ export const THEMES = {
     accent: '#F7889A', accentShadow: '#DD6A7F', accentInk: '#FFFFFF',
     rowBg: '#FFFFFF', rowBorder: '#EFE5D6', rowOpen: '#F7889A', inputBg: '#FFFFFF', inputBorder: '#E9DFCF',
     glow: 'drop-shadow(0 3px 0 rgba(30,70,110,.12))', labelBg: 'rgba(255,255,255,.95)', labelInk: '#2B3A4A', bubble: 'rgba(255,255,255,.8)',
-    btnBg: '#2F4C6B', btnInk: '#FFFFFF', chip: '#F3EADC', pipOff: '#EFE5D6', pipOn: '#F7889A',
+    btnBg: '#2F4C6B', btnInk: '#FFFFFF', chip: '#F3EADC',
     tankShadow: '0 6px 0 rgba(47,76,107,.18)', pop: '#FFFFFF', popShadow: '0 2px 0 #2F4C6B',
   },
   night: {
@@ -110,7 +101,7 @@ export const THEMES = {
     accent: '#7CF2D2', accentShadow: '#3FBFA0', accentInk: '#0E1430',
     rowBg: '#1C2550', rowBorder: '#2A346A', rowOpen: '#7CF2D2', inputBg: '#0F1736', inputBorder: '#2E3A78',
     glow: 'drop-shadow(0 0 10px rgba(160,220,255,.55))', labelBg: 'rgba(14,20,48,.88)', labelInk: '#EEF1FF', bubble: 'rgba(150,220,255,.55)',
-    btnBg: '#7CF2D2', btnInk: '#0E1430', chip: '#222B5C', pipOff: '#2E3A78', pipOn: '#7CF2D2',
+    btnBg: '#7CF2D2', btnInk: '#0E1430', chip: '#222B5C',
     tankShadow: '0 0 60px rgba(60,140,255,.25)', pop: '#7CF2D2', popShadow: '0 0 12px rgba(124,242,210,.8)',
   },
 };
