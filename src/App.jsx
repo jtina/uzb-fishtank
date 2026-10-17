@@ -10,6 +10,7 @@ import SettingsDialog from './components/SettingsDialog.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
 import ConfirmDialog from './components/ConfirmDialog.jsx';
 import FishEditor from './components/FishEditor.jsx';
+import { useTankBackground } from './useTankBackground.js';
 
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
 const PHONE = '(max-width: 640px)';
@@ -47,7 +48,9 @@ export default function App() {
   const tab = phone ? (data.tab === 'board' ? 'board' : 'list') : data.tab; // no Decorate tab on phones
   const L = strings(lang);
   const look = data.look || 'sunny';
-  const t = THEMES[look] || THEMES.sunny;
+  const slot = look === 'night' ? 'night' : 'day';
+  const bgUrl = useTankBackground(slot === 'night' ? data.bgNight : data.bgDay, slot, cls.loadImage);
+  const t = { ...(THEMES[look] || THEMES.sunny), tankBg: `url("${bgUrl}") center bottom / cover no-repeat, ${slot === 'night' ? '#142A6B' : '#5BBDE6'}` };
   const alwaysNames = (data.names || 'hover') === 'always';
   const fishSettings = fishSettingsOf(data);
   // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
@@ -219,7 +222,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'board' && <Leaderboard L={L} students={students} history={data.history || []} ready={!cls.remote || !!data.boardReady} />}
+          {tab === 'board' && <Leaderboard L={L} lang={lang} students={students} history={data.history || []} dayFeeds={cls.dayFeeds} ready={!cls.remote || !!data.boardReady} />}
 
           {tab === 'decor' && (
             <>

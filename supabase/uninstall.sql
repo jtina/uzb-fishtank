@@ -30,6 +30,7 @@ begin
   drop table if exists public.fishtank_decor;
   drop table if exists public.fishtank_pin_failures;
   drop table if exists public.fishtank_meta;
+  drop table if exists public.fishtank_images;
   drop table if exists public.fishtank_config;
   drop table if exists public.fishtank_tanks;
 end $$;

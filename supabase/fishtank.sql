@@ -29,6 +29,8 @@ create table if not exists public.fishtank_tanks (
   min_size real not null default 0.75,
   max_size real not null default 1.5,
   speed real not null default 1,
+  bg_day text not null default 'classic',   -- tank background for Sunny Reef: 'classic', 'reef' or 'img:<id>'
+  bg_night text not null default 'classic', -- and for Night Glow
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -50,6 +52,8 @@ alter table public.fishtank_tanks add column if not exists min_size real not nul
 alter table public.fishtank_tanks add column if not exists max_size real not null default 1.5;
 alter table public.fishtank_tanks add column if not exists speed real not null default 1;
 alter table public.fishtank_tanks drop column if exists food_day; -- the automatic daily reset was removed
+alter table public.fishtank_tanks add column if not exists bg_day text not null default 'classic';
+alter table public.fishtank_tanks add column if not exists bg_night text not null default 'classic';
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -85,7 +89,7 @@ create table if not exists public.fishtank_pin_failures (
 );
 create index if not exists fishtank_pin_failures_ip_at on public.fishtank_pin_failures (ip, at);
 
--- Feedings per student per day, for the leaderboard (kept 30 days; the app shows the last 7).
+-- Feedings per student per day, for the leaderboard (kept for a year).
 create table if not exists public.fishtank_feed_log (
   student_id text not null references public.fishtank_students (id) on delete cascade,
   tank text not null references public.fishtank_tanks (id) on delete cascade,
@@ -95,12 +99,20 @@ create table if not exists public.fishtank_feed_log (
 );
 create index if not exists fishtank_feed_log_tank_day on public.fishtank_feed_log (tank, day);
 
+-- Uploaded tank backgrounds (data URLs, resized in the browser). Shared by all aquariums.
+create table if not exists public.fishtank_images (
+  id text primary key,
+  data text not null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.fishtank_tanks enable row level security;
 alter table public.fishtank_students enable row level security;
 alter table public.fishtank_decor enable row level security;
 alter table public.fishtank_pin_failures enable row level security;
 alter table public.fishtank_feed_log enable row level security;
-revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures, public.fishtank_feed_log from anon, authenticated;
+alter table public.fishtank_images enable row level security;
+revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures, public.fishtank_feed_log, public.fishtank_images from anon, authenticated;
 
 -- ---------- Days (Tashkent time) ----------
 
@@ -160,7 +172,9 @@ begin
   if exists (select 1 from fishtank_tanks where id <> p_tank and pin_hash is not null and crypt(p_new, pin_hash) = pin_hash) then
     raise exception 'Another aquarium already uses this PIN';
   end if;
-  insert into fishtank_tanks (id, pin_hash) values (p_tank, crypt(p_new, gen_salt('bf')))
+  -- a new test aquarium starts with the Reef backgrounds
+  insert into fishtank_tanks (id, pin_hash, bg_day, bg_night)
+  values (p_tank, crypt(p_new, gen_salt('bf')), case when p_tank = 'test' then 'reef' else 'classic' end, case when p_tank = 'test' then 'reef' else 'classic' end)
   on conflict (id) do update set pin_hash = excluded.pin_hash, updated_at = now();
   delete from fishtank_pin_failures;
 end $$;
@@ -186,6 +200,8 @@ begin
     'minSize', (select min_size from fishtank_tanks where id = v_tank),
     'maxSize', (select max_size from fishtank_tanks where id = v_tank),
     'speed', (select speed from fishtank_tanks where id = v_tank),
+    'bgDay', (select bg_day from fishtank_tanks where id = v_tank),
+    'bgNight', (select bg_night from fishtank_tanks where id = v_tank),
     'today', _fishtank_day()::text,
     'history', coalesce((select jsonb_agg(jsonb_build_object('d', day::text, 'id', student_id, 'n', feeds) order by day, student_id)
                          from fishtank_feed_log where tank = v_tank and day > _fishtank_day() - 7 and feeds > 0), '[]'::jsonb),
@@ -250,7 +266,7 @@ begin
   if v_food is not null and p_log then
     insert into fishtank_feed_log (student_id, tank, day, feeds) values (p_id, v_tank, _fishtank_day(), greatest(0, v_delta))
     on conflict (student_id, day) do update set feeds = greatest(0, fishtank_feed_log.feeds + v_delta);
-    delete from fishtank_feed_log where tank = v_tank and day < _fishtank_day() - 30;
+    delete from fishtank_feed_log where tank = v_tank and day < _fishtank_day() - 366;
   end if;
   return jsonb_build_object('ok', true, 'food', v_food);
 end $$;
@@ -412,6 +428,112 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- Feedings on one day (for leaderboard days older than the week that fishtank_load sends).
+create or replace function public.fishtank_day_feeds(p_pin text, p_day date)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  return jsonb_build_object('feeds', coalesce((select jsonb_agg(jsonb_build_object('d', day::text, 'id', student_id, 'n', feeds))
+    from fishtank_feed_log where tank = v_tank and day = p_day and feeds > 0), '[]'::jsonb));
+end $$;
+
+-- ---------- Backgrounds (managed from the test aquarium) ----------
+
+-- Removes uploaded backgrounds that no aquarium uses any more.
+create or replace function public._fishtank_clean_images()
+returns void
+language sql
+security definer
+set search_path = public, extensions
+as $$
+  delete from fishtank_images i
+  where not exists (select 1 from fishtank_tanks t where t.bg_day = 'img:' || i.id or t.bg_night = 'img:' || i.id);
+$$;
+
+create or replace function public._fishtank_valid_bg(p_bg text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select p_bg in ('classic', 'reef') or (p_bg like 'img:%' and exists (select 1 from fishtank_images where id = substr(p_bg, 5)));
+$$;
+
+-- Uploads a background picture (test aquarium only). Returns its id.
+create or replace function public.fishtank_upload_image(p_pin text, p_data text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text; v_id text := replace(gen_random_uuid()::text, '-', '');
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  if v_tank <> 'test' then return jsonb_build_object('error', 'not_allowed'); end if;
+  if p_data !~ '^data:image/(webp|jpeg|png);base64,' or length(p_data) > 4000000 then
+    return jsonb_build_object('error', 'bad_image');
+  end if;
+  insert into fishtank_images (id, data) values (v_id, p_data);
+  return jsonb_build_object('ok', true, 'id', v_id);
+end $$;
+
+create or replace function public.fishtank_get_image(p_pin text, p_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  return jsonb_build_object('data', (select data from fishtank_images where id = p_id));
+end $$;
+
+-- Sets the test aquarium's day and night backgrounds.
+create or replace function public.fishtank_save_bg(p_pin text, p_day text, p_night text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  if v_tank <> 'test' then return jsonb_build_object('error', 'not_allowed'); end if;
+  if not (_fishtank_valid_bg(p_day) and _fishtank_valid_bg(p_night)) then return jsonb_build_object('error', 'bad_image'); end if;
+  update fishtank_tanks set bg_day = p_day, bg_night = p_night, updated_at = now() where id = v_tank;
+  perform _fishtank_clean_images();
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Copies the test aquarium's backgrounds to every aquarium.
+create or replace function public.fishtank_apply_bg_all(p_pin text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_tank text; v_err text;
+begin
+  select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
+  if v_err is not null then return jsonb_build_object('error', v_err); end if;
+  if v_tank <> 'test' then return jsonb_build_object('error', 'not_allowed'); end if;
+  update fishtank_tanks t set bg_day = s.bg_day, bg_night = s.bg_night, updated_at = now()
+  from fishtank_tanks s where s.id = v_tank and t.id <> v_tank;
+  perform _fishtank_clean_images();
+  return jsonb_build_object('ok', true);
+end $$;
+
 -- ---------- Permissions ----------
 
 revoke all on function public._fishtank_auth(text) from public, anon, authenticated;
@@ -431,6 +553,13 @@ revoke all on function public.fishtank_save_config(text, text, int) from public;
 revoke all on function public.fishtank_save_names(text, text) from public;
 revoke all on function public.fishtank_save_look(text, text) from public;
 revoke all on function public.fishtank_save_fish_settings(text, real, real, real) from public;
+revoke all on function public.fishtank_day_feeds(text, date) from public;
+revoke all on function public.fishtank_upload_image(text, text) from public;
+revoke all on function public.fishtank_get_image(text, text) from public;
+revoke all on function public.fishtank_save_bg(text, text, text) from public;
+revoke all on function public.fishtank_apply_bg_all(text) from public;
+revoke all on function public._fishtank_clean_images() from public, anon, authenticated;
+revoke all on function public._fishtank_valid_bg(text) from public, anon, authenticated;
 
 grant execute on function public.fishtank_load(text) to anon, authenticated;
 grant execute on function public.fishtank_save_student(text, jsonb) to anon, authenticated;
@@ -445,6 +574,11 @@ grant execute on function public.fishtank_save_config(text, text, int) to anon, 
 grant execute on function public.fishtank_save_names(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_look(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_fish_settings(text, real, real, real) to anon, authenticated;
+grant execute on function public.fishtank_day_feeds(text, date) to anon, authenticated;
+grant execute on function public.fishtank_upload_image(text, text) to anon, authenticated;
+grant execute on function public.fishtank_get_image(text, text) to anon, authenticated;
+grant execute on function public.fishtank_save_bg(text, text, text) to anon, authenticated;
+grant execute on function public.fishtank_apply_bg_all(text) to anon, authenticated;
 
 -- One-time steps, remembered here so re-running this file doesn't repeat them.
 create table if not exists public.fishtank_meta (key text primary key, done_at timestamptz not null default now());
@@ -460,6 +594,15 @@ begin
     select id, tank, public._fishtank_day(), food from public.fishtank_students where food > 0
     on conflict (student_id, day) do update set feeds = greatest(public.fishtank_feed_log.feeds, excluded.feeds);
     insert into public.fishtank_meta (key) values ('feed_log_backfill');
+  end if;
+end $$;
+
+-- The test aquarium gets the Reef backgrounds, once.
+do $$
+begin
+  if not exists (select 1 from public.fishtank_meta where key = 'test_reef_bg') then
+    update public.fishtank_tanks set bg_day = 'reef', bg_night = 'reef' where id = 'test' and bg_day = 'classic' and bg_night = 'classic';
+    insert into public.fishtank_meta (key) values ('test_reef_bg');
   end if;
 end $$;
 

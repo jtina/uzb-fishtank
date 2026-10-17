@@ -6,9 +6,9 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
 - **Feeding:** tap a fish in the tank, press **+1** on a student's row, or press **Feed everyone**.
 - **Reset sizes (↺, top bar):** puts every fish back to the starting size, after a confirmation. The leaderboard keeps
   the feedings. (Lock is in Settings.)
-- **Leaderboard tab** (desktop and phone): feedings over the last 7 days, or for any one of those days. Places 1-3 get
-  gold, silver and bronze crowns (ties share a place). In the tank and the student list, the 3 biggest fish right now
-  wear the crowns.
+- **Leaderboard tab** (desktop and phone): pick a day on the scrollable date bar (feedings are kept for a year; the bar
+  goes back 90 days) or the last 7 days. Places 1-3 get gold, silver and bronze crowns (ties share a place). In the
+  tank and the student list, the 3 biggest fish right now wear the crowns.
 - **Students:** when you add a student, their fish opens in edit view (name, fish type, color). The list is sorted by feeds.
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
@@ -56,7 +56,9 @@ The build uses relative paths, so `dist/` can be hosted on GitHub Pages or any s
    then re-run the "Deploy to GitHub Pages" workflow.
 
 The PIN entered on the lock screen decides which aquarium opens. Each aquarium has its own students, decorations,
-title and settings. The one named `test` shows a "Test aquarium" badge.
+title and settings. The one named `test` shows a "Test aquarium" badge, and its Settings have a **Tank background**
+section: Classic or Reef pictures, or upload your own, for Sunny Reef and Night Glow, plus a button to use those
+backgrounds in every aquarium.
 
 You can make as many aquariums as you like, e.g. one per class: `select fishtank_set_pin('ZZZZ', 'class-2b');`
 (names use a–z, 0–9, `-` and `_`; every aquarium needs a different PIN). To delete one and everything in it:

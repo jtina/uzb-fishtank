@@ -73,8 +73,17 @@ export const decorOf = k => DECOR.find(x => x.k === k) || {};
 // Gold, silver and bronze crowns for places 1-3.
 export const CROWNS = { 1: asset('crown-gold.webp'), 2: asset('crown-silver.webp'), 3: asset('crown-bronze.webp') };
 
+// Built-in tank backgrounds (day = Sunny Reef look, night = Night Glow). Uploaded ones are 'img:<id>'.
+export const BACKGROUNDS = {
+  classic: { day: asset('tank-bg.webp'), night: asset('tank-bg-night.webp') },
+  reef: { day: asset('tank-bg-reef-day.webp'), night: asset('tank-bg-reef-night.webp') },
+};
+
 // Fetched as soon as the app opens, so switching looks or adding fish/decorations never waits for a download.
-export const PRELOAD_IMAGES = [asset('tank-bg.webp'), asset('tank-bg-night.webp'), ...TYPES.map(t => t.img), ...DECOR.map(d => d.img), ...Object.values(CROWNS)];
+export const PRELOAD_IMAGES = [
+  ...Object.values(BACKGROUNDS).flatMap(b => [b.day, b.night]),
+  ...TYPES.map(t => t.img), ...DECOR.map(d => d.img), ...Object.values(CROWNS),
+];
 
 // The leaderboard's days are calendar days in Tashkent time (UTC+5, no daylight saving); same rule as the database.
 export const dayKey = (now = Date.now()) => new Date(now + 5 * 3600000).toISOString().slice(0, 10);

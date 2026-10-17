@@ -21,6 +21,8 @@ export function loadSaved() {
     speed: saved.speed == null ? DEFAULT_SPEED : saved.speed,
     tank: saved.tank || null,
     history: Array.isArray(saved.history) ? saved.history : [],
+    bgDay: saved.bgDay || 'classic',
+    bgNight: saved.bgNight || 'classic',
   };
 }
 

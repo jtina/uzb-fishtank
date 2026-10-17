@@ -5,14 +5,27 @@ import { loadSaved, save } from './storage.js';
 import { api, remoteEnabled, watchChanges } from './remote.js';
 
 const POLL_MS = 15000;
+
+// Uploaded backgrounds are fetched once and kept (in memory and, if there is room, in this browser).
+const images = new Map();
+const IMG_KEY = 'classFishTank.img.';
+function cachedImage(id) {
+  if (images.has(id)) return images.get(id);
+  try { const v = localStorage.getItem(IMG_KEY + id); if (v) { images.set(id, v); return v; } } catch (e) { /* ignore */ }
+  return null;
+}
+function cacheImage(id, data) {
+  images.set(id, data);
+  try { localStorage.setItem(IMG_KEY + id, data); } catch (e) { /* storage full: memory only */ }
+}
 const readSession = () => { try { return sessionStorage.getItem(SESSION_KEY); } catch (e) { return null; } };
 const writeSession = v => { try { if (v) sessionStorage.setItem(SESSION_KEY, v); else sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } };
 // Remote mode keeps "pin|tank" for this tab; the PIN entered decides which aquarium (tank) is open.
 const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); return m ? { pin: m[1], tank: m[2] } : null; };
 
-// Local-only mode keeps 30 days of feedings for the leaderboard (the database does the same).
+// Local-only mode keeps a year of feedings for the leaderboard (the database does the same).
 function pruneHistory(d) {
-  const keep = addDays(dayKey(), -30);
+  const keep = addDays(dayKey(), -366);
   return { ...d, history: (d.history || []).filter(h => h.d >= keep) };
 }
 
@@ -21,7 +34,7 @@ function initialData(sess) {
   const d = loadSaved();
   if (!remoteEnabled) return pruneHistory(d);
   if (!sess || d.tank === sess.tank) return d;
-  return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
+  return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, bgDay: 'classic', bgNight: 'classic', minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
 }
 
 // Today's feedings for one student go up or down with every feed / minus ball.
@@ -77,6 +90,8 @@ export function useClassData({ onRemoteFeeds } = {}) {
     minSize: snap.minSize ?? DEFAULT_MIN_SIZE,
     maxSize: snap.maxSize ?? DEFAULT_MAX_SIZE,
     speed: snap.speed ?? DEFAULT_SPEED,
+    bgDay: snap.bgDay || 'classic',
+    bgNight: snap.bgNight || 'classic',
     history: snap.history || [],
     boardReady: !!snap.today, // false until supabase/fishtank.sql with the leaderboard has been run
   }));
@@ -245,5 +260,34 @@ export function useClassData({ onRemoteFeeds } = {}) {
     },
   };
 
-  return { data, unlocked, unlock, lock, syncError, remote: remoteEnabled, ...actions };
+  // Feedings on one day: from the week the snapshot carries, or asked from the server for older days.
+  const dayFeeds = async day => {
+    const local = (dataRef.current.history || []).filter(h => h.d === day);
+    if (!remoteEnabled || !pin.current || day > addDays(dayKey(), -7)) return local;
+    try { return (await api.dayFeeds(pin.current, day)).feeds || []; } catch (e) { onError(e); return local; }
+  };
+
+  // Backgrounds (test aquarium): returns false if the server refused or the upload failed.
+  const setBackgrounds = async (bgDay, bgNight) => {
+    setData(d => ({ ...d, bgDay, bgNight }));
+    pending.current++; writeGen.current++;
+    try { await api.saveBg(pin.current, bgDay, bgNight); watcher.current.notify(); return true; }
+    catch (e) { onError(e); return false; }
+    finally { pending.current--; }
+  };
+  const uploadBackground = async dataUrl => {
+    try { const r = await api.uploadImage(pin.current, dataUrl); cacheImage(r.id, dataUrl); return r.id; }
+    catch (e) { onError(e); return null; }
+  };
+  const applyBackgroundsToAll = async () => {
+    try { await api.applyBgAll(pin.current); return true; } catch (e) { onError(e); return false; }
+  };
+  const loadImage = async id => {
+    const cached = cachedImage(id); if (cached) return cached;
+    if (!remoteEnabled || !pin.current) return null;
+    try { const r = await api.getImage(pin.current, id); if (r.data) cacheImage(id, r.data); return r.data || null; }
+    catch (e) { return null; }
+  };
+
+  return { data, unlocked, unlock, lock, syncError, remote: remoteEnabled, dayFeeds, setBackgrounds, uploadBackground, applyBackgroundsToAll, loadImage, ...actions };
 }

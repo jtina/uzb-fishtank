@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_MAX_SIZE, DEFAULT_MIN_SIZE, DEFAULT_SPEED, SPEED_LIMITS, fishSettingsOf, typeOf } from '../constants.js';
 import { exportFish, parseFishFile } from '../fishList.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
+import BackgroundSettings from './BackgroundSettings.jsx';
 
 const pct = v => String(Math.round(v * 100));
 
@@ -104,6 +105,8 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
             />
             <button className="btn-outline small" onClick={resetDefaults}>{L.resetDefaults}</button>
           </section>
+
+          {cls.remote && data.tank === 'test' && <BackgroundSettings L={L} cls={cls} />}
 
           <section className="settings-section">
             <div className="settings-head">{L.listSection}</div>
