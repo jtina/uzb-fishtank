@@ -70,6 +70,9 @@ the new PIN.
 If a change can't be saved (no internet), a warning shows above the tank, and the device goes back to the shared
 data once the connection returns. Changes made while offline are not kept.
 
+To remove the app's tables and functions from a Supabase project (e.g. one it was set up in by mistake), run
+[`supabase/uninstall.sql`](supabase/uninstall.sql): first its preview query, then the remove block.
+
 ## Without Supabase (local-only)
 
 If `SUPABASE_URL` / `SUPABASE_ANON_KEY` are not set, everything is saved only in that browser. The PIN then comes from
