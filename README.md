@@ -6,9 +6,12 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
 - **Feeding:** tap a fish in the tank, press **+1** on a student's row, or press **Feed everyone**.
 - **Reset sizes (↺, top bar):** puts every fish back to the starting size, after a confirmation. The leaderboard keeps
   the feedings. (Lock is in Settings.)
-- **Leaderboard tab** (desktop and phone): pick a day on the scrollable date bar (feedings are kept for a year; the bar
-  goes back 90 days) or the last 7 days. Places 1-3 get gold, silver and bronze crowns (ties share a place). In the
-  tank and the student list, the 3 biggest fish right now wear the crowns.
+- **Leaderboard tab** (desktop and phone): pick a day on the date bar (drag or use the arrows; it covers the year of
+  feedings the database keeps), jump back with **Today**, pick any day from the **calendar**, or see the last 7 days.
+  Places 1-3 get gold, silver and bronze crowns (ties share a place). In the tank and the student list, the 3 biggest
+  fish right now wear the crowns.
+- **Top fish zone (Settings):** switch it on and drag a line on the picture of the tank. Only the top 5 fish (or the
+  number you set) swim above it; the rest stay below, and their food drops quickly to the line so they don't wait long.
 - **Students:** when you add a student, their fish opens in edit view (name, fish type, color). The list is sorted by feeds.
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for

@@ -40,6 +40,7 @@ export const api = {
   saveConfig: (pin, title, maxFeed) => call('fishtank_save_config', { p_pin: pin, p_title: title, p_max_feed: maxFeed }),
   saveNames: (pin, names) => call('fishtank_save_names', { p_pin: pin, p_names: names }),
   saveLook: (pin, look) => call('fishtank_save_look', { p_pin: pin, p_look: look }),
+  saveZone: (pin, line, top) => call('fishtank_save_zone', { p_pin: pin, p_line: line, p_top: top }),
   dayFeeds: (pin, day) => call('fishtank_day_feeds', { p_pin: pin, p_day: day }),
   uploadImage: (pin, data) => call('fishtank_upload_image', { p_pin: pin, p_data: data }),
   getImage: (pin, id) => call('fishtank_get_image', { p_pin: pin, p_id: id }),

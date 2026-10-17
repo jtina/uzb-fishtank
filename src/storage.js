@@ -23,6 +23,8 @@ export function loadSaved() {
     history: Array.isArray(saved.history) ? saved.history : [],
     bgDay: saved.bgDay || 'classic',
     bgNight: saved.bgNight || 'classic',
+    zoneLine: saved.zoneLine || 0,
+    zoneTop: saved.zoneTop || 5,
   };
 }
 

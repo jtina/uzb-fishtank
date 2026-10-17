@@ -3,6 +3,7 @@ import { DEFAULT_MAX_SIZE, DEFAULT_MIN_SIZE, DEFAULT_SPEED, SPEED_LIMITS, fishSe
 import { exportFish, parseFishFile } from '../fishList.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import BackgroundSettings from './BackgroundSettings.jsx';
+import ZoneSettings from './ZoneSettings.jsx';
 
 const pct = v => String(Math.round(v * 100));
 
@@ -105,6 +106,8 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
             />
             <button className="btn-outline small" onClick={resetDefaults}>{L.resetDefaults}</button>
           </section>
+
+          <ZoneSettings L={L} cls={cls} />
 
           {cls.remote && data.tank === 'test' && <BackgroundSettings L={L} cls={cls} />}
 

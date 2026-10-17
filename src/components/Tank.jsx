@@ -79,8 +79,10 @@ const Tank = forwardRef(function Tank(props, ref) {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(3, (now - last) / 16.67); last = now;
       const tank = tankRef.current; if (!tank) return;
-      const { students, focusId, decorating, alwaysNames, fishSettings } = live.current;
+      const { students, focusId, decorating, alwaysNames, fishSettings, zone } = live.current;
       const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90;
+      // Top fish zone: only zone.tops swim above lineY; everyone else stays below it.
+      const lineY = zone && zone.line > 0 ? zone.line * H : null;
       const ids = {};
       for (const s of students) {
         ids[s.id] = 1;
@@ -89,23 +91,33 @@ const Tank = forwardRef(function Tank(props, ref) {
         // Feeds from another device are already in s.food; hold that growth back until the fish eats them.
         const unseen = pellets.current.filter(q => q.fishId === s.id && q.remote).length;
         const base = growScale(Math.max(0, s.food - unseen), fishSettings), target = focus ? Math.max(2, base * 1.4) : base;
+        const zoned = lineY != null && !focus, isTop = zoned && !!zone.tops[s.id];
+        const lo = zoned && !isTop ? Math.min(bottom - 20, lineY + 18) : TOP;  // swim area for this fish
+        const hi = zoned && isTop ? Math.max(TOP + 20, lineY - 18) : bottom;
         let f = sim.current[s.id];
         if (!f) {
-          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: TOP + Math.random() * Math.max(1, bottom - TOP), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
-          retarget(f, W, TOP, bottom);
+          f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: lo + Math.random() * Math.max(1, hi - lo), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
+          retarget(f, W, lo, hi);
         }
         const p = pellets.current.find(q => q.fishId === s.id);
+        if (!zoned || isTop) f.below = false;
+        if (!zoned || !isTop || p) f.above = false;
+        if (!p && !focus && (f.ty < lo || f.ty > hi)) retarget(f, W, lo, hi); // zone changed: head to the right side
         let tx = f.tx, ty = f.ty, sp = f.sp * fishSettings.speed; // speed setting: normal swimming only
-        if (p) { tx = p.x; ty = p.y; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
+        // Fish below the line wait under their food until it sinks past the line.
+        if (p) { tx = p.x; ty = zoned && !isTop ? Math.max(p.y, lo) : p.y; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
         const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
         // Chasing food: the farther away it is (e.g. from the bottom of the tank), the faster the fish swims.
         if (p) sp = 2.6 + Math.min(3.4, d / 90);
-        if (!p && !focus && (d < 24 || Math.random() < 0.003 * dt)) retarget(f, W, TOP, bottom);
+        if (!p && !focus && (d < 24 || Math.random() < 0.003 * dt)) retarget(f, W, lo, hi);
         const k = (p ? 0.09 : 0.04) * dt; // reach chasing speed quickly
         f.vx += (dx / d * sp - f.vx) * k;
         f.vy += (dy / d * sp * (p ? 1 : 0.7) - f.vy) * k; // normal swimming is flatter; chasing goes straight at the food
         f.x = Math.max(30, Math.min(W - 30, f.x + f.vx * dt));
         f.y = Math.max(TOP, Math.min(bottom, f.y + f.vy * dt));
+        // Once a fish is on its side of the line it stays there (top fish may still dive for their own food).
+        if (zoned && !isTop) { if (f.y >= lo) f.below = true; if (f.below && f.y < lo) { f.y = lo; f.vy = Math.max(0, f.vy); } }
+        if (zoned && isTop && !p) { if (f.y <= hi) f.above = true; if (f.above && f.y > hi) { f.y = hi; f.vy = Math.min(0, f.vy); } }
         const frozen = focus && !p;
         if (frozen) {
           // The fish being edited glides to the middle and holds still, facing right.
@@ -116,7 +128,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         } else if (p && Math.abs(dx) > 6) f.dir = dx > 0 ? 1 : -1; // face the food
         else if (Math.abs(f.vx) > 0.12) f.dir = f.vx > 0 ? 1 : -1;
         f.sc += (target - f.sc) * 0.05 * dt;
-        if (p && d < 14 + 22 * f.sc) eat(s, p, f);
+        if (p && Math.hypot(p.x - f.x, p.y - f.y) < 14 + 22 * f.sc) eat(s, p, f);
         const bob = frozen ? 0 : Math.sin(now / 450 + f.ph) * 3;
         // Nose up or down: toward the food (up to 45°) while chasing it, otherwise a little with the swim direction.
         // Positive angles turn the nose down; flipped (left-facing) fish need the opposite rotation.
@@ -136,7 +148,9 @@ const Tank = forwardRef(function Tank(props, ref) {
       for (const id of Object.keys(sim.current)) if (!ids[id]) delete sim.current[id];
       for (const p of pellets.current.slice()) {
         if (!ids[p.fishId]) { removePellet(p); continue; }
-        if (p.y < p.floor) p.y += p.vy * dt;
+        // Food for a fish below the zone line drops fast until it passes the line, so that fish isn't kept waiting.
+        const fast = lineY != null && !zone.tops[p.fishId] && p.y < lineY;
+        if (p.y < p.floor) p.y = Math.min(p.floor, p.y + (fast ? 7 : p.vy) * dt);
         p.x += Math.sin(now / 300 + p.vy * 10) * 0.2;
         p.el.style.transform = `translate(${p.x - 5}px,${p.y - 5}px)`;
       }

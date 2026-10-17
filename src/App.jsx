@@ -55,6 +55,8 @@ export default function App() {
   const fishSettings = fishSettingsOf(data);
   // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
   const crowns = placesOf(Object.fromEntries(students.map(s => [s.id, s.food])));
+  // Top fish zone: the fish allowed above the line (top N by feeds; ties share a place, so it can be a few more).
+  const zone = { line: data.zoneLine || 0, tops: Object.fromEntries(Object.entries(crowns).filter(([, p]) => p <= (data.zoneTop || 5)).map(([id]) => [id, true])) };
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).
@@ -163,6 +165,7 @@ export default function App() {
             alwaysNames={alwaysNames}
             fishSettings={fishSettings}
             crowns={crowns}
+            zone={zone}
             theme={t}
             L={L}
             isEmpty={students.length === 0}
