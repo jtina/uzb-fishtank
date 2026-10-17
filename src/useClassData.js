@@ -34,7 +34,7 @@ function initialData(sess) {
   const d = loadSaved();
   if (!remoteEnabled) return pruneHistory(d);
   if (!sess || d.tank === sess.tank) return d;
-  return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, bgDay: 'classic', bgNight: 'classic', zoneLine: 0, zoneTop: 5, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
+  return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, bgDay: 'classic', bgNight: 'classic', zoneLine: 0, zoneTop: 5, zoneDive: false, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
 }
 
 // Today's feedings for one student go up or down with every feed / minus ball.
@@ -94,6 +94,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     bgNight: snap.bgNight || 'classic',
     zoneLine: snap.zoneLine || 0,
     zoneTop: snap.zoneTop || 5,
+    zoneDive: !!snap.zoneDive,
     history: snap.history || [],
     boardReady: !!snap.today, // false until supabase/fishtank.sql with the leaderboard has been run
   }));
@@ -249,7 +250,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     // Top fish zone (line 0 = off). Sent after a short pause, so dragging the line doesn't flood the server.
     setZone: patch => {
       setData(d => ({ ...d, ...patch }));
-      later('zone', 500, p => api.saveZone(p, dataRef.current.zoneLine || 0, dataRef.current.zoneTop || 5));
+      later('zone', 500, p => api.saveZone(p, dataRef.current.zoneLine || 0, dataRef.current.zoneTop || 5, !!dataRef.current.zoneDive));
     },
     setLook: look => { setData(d => ({ ...d, look })); write(p => api.saveLook(p, look)); },
     setNames: names => { setData(d => ({ ...d, names })); write(p => api.saveNames(p, names)); },

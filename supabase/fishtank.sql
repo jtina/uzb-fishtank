@@ -33,6 +33,7 @@ create table if not exists public.fishtank_tanks (
   bg_night text not null default 'classic', -- and for Night Glow
   zone_line real not null default 0,        -- top fish zone: line height as a fraction of the tank (0 = off)
   zone_top int not null default 5,          -- how many top fish may swim above it
+  zone_dive boolean not null default false, -- whether those top fish may also swim below the line
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -58,6 +59,7 @@ alter table public.fishtank_tanks add column if not exists bg_day text not null 
 alter table public.fishtank_tanks add column if not exists bg_night text not null default 'classic';
 alter table public.fishtank_tanks add column if not exists zone_line real not null default 0;
 alter table public.fishtank_tanks add column if not exists zone_top int not null default 5;
+alter table public.fishtank_tanks add column if not exists zone_dive boolean not null default false;
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -208,6 +210,7 @@ begin
     'bgNight', (select bg_night from fishtank_tanks where id = v_tank),
     'zoneLine', (select zone_line from fishtank_tanks where id = v_tank),
     'zoneTop', (select zone_top from fishtank_tanks where id = v_tank),
+    'zoneDive', (select zone_dive from fishtank_tanks where id = v_tank),
     'today', _fishtank_day()::text,
     'history', coalesce((select jsonb_agg(jsonb_build_object('d', day::text, 'id', student_id, 'n', feeds) order by day, student_id)
                          from fishtank_feed_log where tank = v_tank and day > _fishtank_day() - 7 and feeds > 0), '[]'::jsonb),
@@ -450,7 +453,9 @@ begin
 end $$;
 
 -- Top fish zone: only the top p_top fish swim above a line at p_line (fraction of the tank height; 0 = off).
-create or replace function public.fishtank_save_zone(p_pin text, p_line real, p_top int)
+-- p_dive: the top fish may also swim below the line (otherwise they stay above it).
+drop function if exists public.fishtank_save_zone(text, real, int);
+create or replace function public.fishtank_save_zone(p_pin text, p_line real, p_top int, p_dive boolean default false)
 returns jsonb
 language plpgsql
 security definer
@@ -463,6 +468,7 @@ begin
   update fishtank_tanks
   set zone_line = case when coalesce(p_line, 0) <= 0 then 0 else greatest(0.1, least(0.9, p_line)) end,
       zone_top = greatest(1, least(50, coalesce(p_top, 5))),
+      zone_dive = coalesce(p_dive, false),
       updated_at = now()
   where id = v_tank;
   return jsonb_build_object('ok', true);
@@ -579,7 +585,7 @@ revoke all on function public.fishtank_save_names(text, text) from public;
 revoke all on function public.fishtank_save_look(text, text) from public;
 revoke all on function public.fishtank_save_fish_settings(text, real, real, real) from public;
 revoke all on function public.fishtank_day_feeds(text, date) from public;
-revoke all on function public.fishtank_save_zone(text, real, int) from public;
+revoke all on function public.fishtank_save_zone(text, real, int, boolean) from public;
 revoke all on function public.fishtank_upload_image(text, text) from public;
 revoke all on function public.fishtank_get_image(text, text) from public;
 revoke all on function public.fishtank_save_bg(text, text, text) from public;
@@ -601,7 +607,7 @@ grant execute on function public.fishtank_save_names(text, text) to anon, authen
 grant execute on function public.fishtank_save_look(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_fish_settings(text, real, real, real) to anon, authenticated;
 grant execute on function public.fishtank_day_feeds(text, date) to anon, authenticated;
-grant execute on function public.fishtank_save_zone(text, real, int) to anon, authenticated;
+grant execute on function public.fishtank_save_zone(text, real, int, boolean) to anon, authenticated;
 grant execute on function public.fishtank_upload_image(text, text) to anon, authenticated;
 grant execute on function public.fishtank_get_image(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_bg(text, text, text) to anon, authenticated;

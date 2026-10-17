@@ -81,7 +81,8 @@ const Tank = forwardRef(function Tank(props, ref) {
       const tank = tankRef.current; if (!tank) return;
       const { students, focusId, decorating, alwaysNames, fishSettings, zone } = live.current;
       const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90;
-      // Top fish zone: only zone.tops swim above lineY; everyone else stays below it.
+      // Top fish zone: only zone.tops swim above lineY; everyone else stays below it. The top fish stay above it too,
+      // unless zone.dive lets them swim anywhere.
       const lineY = zone && zone.line > 0 ? zone.line * H : null;
       const ids = {};
       for (const s of students) {
@@ -93,7 +94,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         const base = growScale(Math.max(0, s.food - unseen), fishSettings), target = focus ? Math.max(2, base * 1.4) : base;
         const zoned = lineY != null && !focus, isTop = zoned && !!zone.tops[s.id];
         const lo = zoned && !isTop ? Math.min(bottom - 20, lineY + 18) : TOP;  // swim area for this fish
-        const hi = zoned && isTop ? Math.max(TOP + 20, lineY - 18) : bottom;
+        const hi = zoned && isTop && !zone.dive ? Math.max(TOP + 20, lineY - 18) : bottom;
         let f = sim.current[s.id];
         if (!f) {
           f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: lo + Math.random() * Math.max(1, hi - lo), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
@@ -101,11 +102,11 @@ const Tank = forwardRef(function Tank(props, ref) {
         }
         const p = pellets.current.find(q => q.fishId === s.id);
         if (!zoned || isTop) f.below = false;
-        if (!zoned || !isTop || p) f.above = false;
+        if (!zoned || !isTop || zone.dive) f.above = false;
         if (!p && !focus && (f.ty < lo || f.ty > hi)) retarget(f, W, lo, hi); // zone changed: head to the right side
         let tx = f.tx, ty = f.ty, sp = f.sp * fishSettings.speed; // speed setting: normal swimming only
         // Fish below the line wait under their food until it sinks past the line.
-        if (p) { tx = p.x; ty = zoned && !isTop ? Math.max(p.y, lo) : p.y; } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
+        if (p) { tx = p.x; ty = Math.min(Math.max(p.y, lo), hi); } else if (focus) { tx = W / 2; ty = H * 0.45; sp = 3.2; }
         const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy) || 1;
         // Chasing food: the farther away it is (e.g. from the bottom of the tank), the faster the fish swims.
         if (p) sp = 2.6 + Math.min(3.4, d / 90);
@@ -117,7 +118,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         f.y = Math.max(TOP, Math.min(bottom, f.y + f.vy * dt));
         // Once a fish is on its side of the line it stays there (top fish may still dive for their own food).
         if (zoned && !isTop) { if (f.y >= lo) f.below = true; if (f.below && f.y < lo) { f.y = lo; f.vy = Math.max(0, f.vy); } }
-        if (zoned && isTop && !p) { if (f.y <= hi) f.above = true; if (f.above && f.y > hi) { f.y = hi; f.vy = Math.min(0, f.vy); } }
+        if (zoned && isTop && !zone.dive) { if (f.y <= hi) f.above = true; if (f.above && f.y > hi) { f.y = hi; f.vy = Math.min(0, f.vy); } }
         const frozen = focus && !p;
         if (frozen) {
           // The fish being edited glides to the middle and holds still, facing right.
@@ -149,8 +150,10 @@ const Tank = forwardRef(function Tank(props, ref) {
       for (const p of pellets.current.slice()) {
         if (!ids[p.fishId]) { removePellet(p); continue; }
         // Food for a fish below the zone line drops fast until it passes the line, so that fish isn't kept waiting.
+        // Food for a top fish that has to stay above the line stops at the line, so it can always reach it.
         const fast = lineY != null && !zone.tops[p.fishId] && p.y < lineY;
-        if (p.y < p.floor) p.y = Math.min(p.floor, p.y + (fast ? 7 : p.vy) * dt);
+        const floor = lineY != null && zone.tops[p.fishId] && !zone.dive && p.fishId !== focusId ? Math.min(p.floor, lineY - 12) : p.floor;
+        if (p.y < floor) p.y = Math.min(floor, p.y + (fast ? 7 : p.vy) * dt);
         p.x += Math.sin(now / 300 + p.vy * 10) * 0.2;
         p.el.style.transform = `translate(${p.x - 5}px,${p.y - 5}px)`;
       }

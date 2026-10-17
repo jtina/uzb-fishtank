@@ -25,6 +25,7 @@ export function loadSaved() {
     bgNight: saved.bgNight || 'classic',
     zoneLine: saved.zoneLine || 0,
     zoneTop: saved.zoneTop || 5,
+    zoneDive: !!saved.zoneDive,
   };
 }
 

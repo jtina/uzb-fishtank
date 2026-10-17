@@ -49,6 +49,10 @@ export default function ZoneSettings({ L, cls }) {
       {on && (
         <>
           <div className="settings-hint">{L.zoneHelp}</div>
+          <label className="switch-row">
+            <span>{L.zoneDive}</span>
+            <input type="checkbox" role="switch" className="switch" checked={!!data.zoneDive} onChange={e => cls.setZone({ zoneDive: e.target.checked })} />
+          </label>
           <label className="setting-row">
             {L.zoneTop}
             <div className="setting-input">
