@@ -4,9 +4,10 @@ import { COLORS, CROWNS, addDays, dayKey, placesOf } from '../constants.js';
 const DAYS_BACK = 366; // the date bar covers the year of feedings the database keeps
 
 // Feedings for one day (picked from a scrollable date bar) or the last 7 days, ranked, crowns for places 1-3.
-export default function Leaderboard({ L, students, history, dayFeeds, ready }) {
+// sel ('YYYY-MM-DD' or 'week') lives in the App; onScores reports the shown feed counts (null for today), so the
+// tank can show the fish at those sizes.
+export default function Leaderboard({ L, students, history, dayFeeds, ready, sel, setSel, onScores }) {
   const today = dayKey();
-  const [sel, setSel] = useState(today); // a day, or 'week'
   const [older, setOlder] = useState({}); // day -> feeds, for days before the week the snapshot carries
   const barRef = useRef(null);
   const days = Array.from({ length: DAYS_BACK }, (_, i) => addDays(today, i - DAYS_BACK + 1)); // oldest first
@@ -60,6 +61,9 @@ export default function Leaderboard({ L, students, history, dayFeeds, ready }) {
   students.forEach(s => { scores[s.id] = 0; });
   (entries || []).forEach(h => { if (h.id in scores) scores[h.id] += h.n; });
   const places = placesOf(scores);
+  const scoresKey = sel === today || loading ? null : JSON.stringify(scores);
+  useEffect(() => { onScores(scoresKey && JSON.parse(scoresKey)); }, [scoresKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onScores(null), []); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = students.filter(s => places[s.id]).sort((a, b) => places[a.id] - places[b.id] || a.name.localeCompare(b.name));
 
   const card = d => {

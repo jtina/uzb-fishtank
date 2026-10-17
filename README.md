@@ -9,7 +9,8 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
 - **Leaderboard tab** (desktop and phone): pick a day on the date bar (drag or use the arrows; it covers the year of
   feedings the database keeps), jump back with **Today**, pick any day from the **calendar**, or see the last 7 days.
   Places 1-3 get gold, silver and bronze crowns (ties share a place). In the tank and the student list, the 3 biggest
-  fish right now wear the crowns.
+  fish right now wear the crowns. Picking a past day or the 7 days shows the fish in the tank at those sizes (view
+  only; a label in the tank leads back to today).
 - **Top fish zone (Settings):** switch it on and drag a line on the picture of the tank. Only the top 5 fish (or the
   number you set) swim above it and stay there (their food stops at the line), unless you switch on "top fish can also
   swim below the line"; the rest stay below, and their food drops quickly to the line so they don't wait long.

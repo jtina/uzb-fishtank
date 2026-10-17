@@ -337,6 +337,12 @@ const Tank = forwardRef(function Tank(props, ref) {
 
       <div ref={fxRef} className="fx" />
       {isEmpty && <div className="tank-empty">{L.empty}</div>}
+      {props.viewLabel && (
+        <div className="view-badge" onClick={e => e.stopPropagation()}>
+          <span>📅 {L.viewing} {props.viewLabel}</span>
+          <button onClick={props.onBackToToday}>{L.backToToday}</button>
+        </div>
+      )}
       {canFullscreen && (
         <button className="fullscreen-btn" onClick={toggleFullscreen} aria-label={fullscreen ? L.exitFullscreen : L.fullscreen} title={fullscreen ? L.exitFullscreen : L.fullscreen}>
           {fullscreen ? '✕' : '⛶'} <span>{fullscreen ? L.exitFullscreen : L.fullscreen}</span>

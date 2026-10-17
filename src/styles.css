@@ -222,3 +222,6 @@ button{font-family:inherit}
 .zone-handle{position:absolute;left:50%;top:-14px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .zone-label{position:absolute;left:10px;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.92);color:#2B3A4A;pointer-events:none}
 .zone-label.above{top:10px}
+
+.view-badge{position:absolute;left:14px;top:28px;z-index:62;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:999px;background:rgba(255,255,255,.92);color:#2B3A4A;font-size:15px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.view-badge button{font-family:inherit;font-size:14px;font-weight:700;padding:6px 12px;border-radius:999px;border:none;background:var(--accent);color:var(--accentInk);cursor:pointer}

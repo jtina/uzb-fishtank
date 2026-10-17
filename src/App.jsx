@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, THEMES, TYPES, fishSettingsOf, placesOf, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, dayKey, fishSettingsOf, placesOf, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
 import Tank from './components/Tank.jsx';
@@ -43,6 +43,9 @@ export default function App() {
   const [newName, setNewName] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  // Leaderboard selection; picking a past day or the week shows the fish at those sizes (view only).
+  const [boardSel, setBoardSel] = useState(dayKey);
+  const [viewScores, setViewScores] = useState(null);
 
   const { students, decor, lang } = data;
   const tab = phone ? (data.tab === 'board' ? 'board' : 'list') : data.tab; // no Decorate tab on phones
@@ -55,8 +58,15 @@ export default function App() {
   const fishSettings = fishSettingsOf(data);
   // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
   const crowns = placesOf(Object.fromEntries(students.map(s => [s.id, s.food])));
+  const viewing = tab === 'board' && !phone && viewScores;
+  const tankStudents = viewing ? students.map(s => ({ ...s, food: viewScores[s.id] || 0 })) : students;
+  const tankCrowns = viewing ? placesOf(Object.fromEntries(tankStudents.map(s => [s.id, s.food]))) : crowns;
+  const viewLabel = !viewing ? null : boardSel === 'week' ? L.week : (() => {
+    const dt = new Date(boardSel + 'T00:00:00Z');
+    return `${L.weekdays[dt.getUTCDay()]}, ${L.months[dt.getUTCMonth()]} ${dt.getUTCDate()}`;
+  })();
   // Top fish zone: the fish allowed above the line (top N by feeds; ties share a place, so it can be a few more).
-  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: Object.fromEntries(Object.entries(crowns).filter(([, p]) => p <= (data.zoneTop || 5)).map(([id]) => [id, true])) };
+  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: Object.fromEntries(Object.entries(tankCrowns).filter(([, p]) => p <= (data.zoneTop || 5)).map(([id]) => [id, true])) };
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).
@@ -156,7 +166,9 @@ export default function App() {
           {cls.syncError && <div className="sync-error" role="status">{cls.syncError === 'needs_update' ? L.needsUpdate : L.syncError}</div>}
           {!phone && <Tank
             ref={tankApi}
-            students={students}
+            students={tankStudents}
+            viewLabel={viewLabel}
+            onBackToToday={() => setBoardSel(dayKey())}
             decor={decor}
             decorating={tab === 'decor'}
             focusId={focusId}
@@ -164,7 +176,7 @@ export default function App() {
             selDecor={selDecor}
             alwaysNames={alwaysNames}
             fishSettings={fishSettings}
-            crowns={crowns}
+            crowns={tankCrowns}
             zone={zone}
             theme={t}
             L={L}
@@ -225,7 +237,12 @@ export default function App() {
             </>
           )}
 
-          {tab === 'board' && <Leaderboard L={L} lang={lang} students={students} history={data.history || []} dayFeeds={cls.dayFeeds} ready={!cls.remote || !!data.boardReady} />}
+          {tab === 'board' && (
+            <Leaderboard
+              L={L} students={students} history={data.history || []} dayFeeds={cls.dayFeeds} ready={!cls.remote || !!data.boardReady}
+              sel={boardSel} setSel={setBoardSel} onScores={setViewScores}
+            />
+          )}
 
           {tab === 'decor' && (
             <>
