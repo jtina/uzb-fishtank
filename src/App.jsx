@@ -8,6 +8,7 @@ import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
+import ConfirmDialog from './components/ConfirmDialog.jsx';
 import FishEditor from './components/FishEditor.jsx';
 
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
@@ -40,6 +41,7 @@ export default function App() {
   const [selDecor, setSelDecor] = useState(null);
   const [newName, setNewName] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const { students, decor, lang } = data;
   const tab = phone ? (data.tab === 'board' ? 'board' : 'list') : data.tab; // no Decorate tab on phones
@@ -142,7 +144,7 @@ export default function App() {
               </div>
               <button className="pill" onClick={() => cls.setNames(alwaysNames ? 'hover' : 'always')}>{alwaysNames ? L.namesAlways : L.namesHover}</button>
               <button className="pill" onClick={() => setSettingsOpen(true)} aria-label={L.settings}>⚙ {L.settings}</button>
-              <button className="pill" onClick={lockNow}>{L.lock}</button>
+              <button className="pill" onClick={() => setResetOpen(true)} disabled={!students.some(s => s.food > 0)}>↺ {L.resetSizes}</button>
               <button className="feed-all" onClick={() => students.forEach((s, i) => setTimeout(() => feed(s.id), i * 40))}>{L.feedAll}</button>
             </div>
           </div>
@@ -235,7 +237,24 @@ export default function App() {
         </div>
 
         {adding && <FishEditor L={L} onCancel={() => setAdding(false)} onSave={addFromPopup} />}
-        {settingsOpen && <SettingsDialog L={L} cls={cls} onClose={() => { cls.commitFishSettings(); setSettingsOpen(false); }} />}
+        {settingsOpen && (
+          <SettingsDialog
+            L={L}
+            cls={cls}
+            onClose={() => { cls.commitFishSettings(); setSettingsOpen(false); }}
+            onLock={() => { cls.commitFishSettings(); setSettingsOpen(false); lockNow(); }}
+          />
+        )}
+        {resetOpen && (
+          <ConfirmDialog
+            L={L}
+            title={L.resetTitle}
+            body={L.resetBody}
+            confirmLabel={L.resetConfirm}
+            onCancel={() => setResetOpen(false)}
+            onConfirm={() => { cls.resetFood(); setResetOpen(false); }}
+          />
+        )}
       </div>
     </div>
   );

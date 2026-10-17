@@ -7,9 +7,9 @@ const pct = v => String(Math.round(v * 100));
 
 /**
  * Per-aquarium settings: fish size range, feeds to reach the biggest size, swim speed, export / import of the
- * fish list, reset sizes and delete all fish. Everything except export applies to the open aquarium only.
+ * fish list, delete all fish, and Lock. Everything except export applies to the open aquarium only.
  */
-export default function SettingsDialog({ L, cls, onClose }) {
+export default function SettingsDialog({ L, cls, onClose, onLock }) {
   const { data } = cls;
   const fs = fishSettingsOf(data);
   // Text boxes keep what is being typed; valid numbers go to the aquarium straight away, and leaving a box
@@ -21,7 +21,7 @@ export default function SettingsDialog({ L, cls, onClose }) {
     setDraft({ min: pct(fs.minSize), max: pct(fs.maxSize), feeds: String(fs.maxFeed) });
   }, [fs.minSize, fs.maxSize, fs.maxFeed]);
 
-  const [confirm, setConfirm] = useState(null); // 'reset' | 'delete' | { fish, hasFeeds }
+  const [confirm, setConfirm] = useState(null); // 'delete' | { fish, hasFeeds }
   const [keepFeeds, setKeepFeeds] = useState(true);
   const [importMsg, setImportMsg] = useState('');
   const fileRef = useRef(null);
@@ -119,24 +119,17 @@ export default function SettingsDialog({ L, cls, onClose }) {
           <section className="settings-section">
             <div className="settings-head">{L.dangerSection}</div>
             <div className="settings-buttons">
-              <button className="btn-outline small" disabled={!count} onClick={() => setConfirm('reset')}>{L.resetSizes}</button>
               <button className="btn-outline small danger" disabled={!count} onClick={() => setConfirm('delete')}>{L.deleteAll}</button>
             </div>
           </section>
 
           <div className="dialog-actions">
+            <button className="btn-outline lock-btn" onClick={onLock}>🔒 {L.lock}</button>
             <button className="btn-primary" onClick={onClose}>{L.done}</button>
           </div>
         </div>
       </div>
 
-      {confirm === 'reset' && (
-        <ConfirmDialog
-          L={L} title={L.resetTitle} body={L.resetBody} confirmLabel={L.resetConfirm}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => { cls.resetFood(); setConfirm(null); }}
-        />
-      )}
       {confirm === 'delete' && (
         <ConfirmDialog
           L={L} title={L.deleteAllTitle} body={L.deleteAllBody} confirmLabel={L.deleteAllConfirm(count)}

@@ -29,7 +29,6 @@ create table if not exists public.fishtank_tanks (
   min_size real not null default 0.75,
   max_size real not null default 1.5,
   speed real not null default 1,
-  food_day date, -- the day the fish sizes (students.food) belong to; see _fishtank_roll
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -50,7 +49,7 @@ alter table public.fishtank_tanks add column if not exists look text not null de
 alter table public.fishtank_tanks add column if not exists min_size real not null default 0.75;
 alter table public.fishtank_tanks add column if not exists max_size real not null default 1.5;
 alter table public.fishtank_tanks add column if not exists speed real not null default 1;
-alter table public.fishtank_tanks add column if not exists food_day date;
+alter table public.fishtank_tanks drop column if exists food_day; -- the automatic daily reset was removed
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -105,31 +104,12 @@ revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_d
 
 -- ---------- Days (Tashkent time) ----------
 
--- A school day runs from 00:01 to 00:01 Tashkent time (UTC+5, no daylight saving).
+-- The leaderboard's days are calendar days in Tashkent time (UTC+5, no daylight saving).
 create or replace function public._fishtank_day(p_at timestamptz default now())
 returns date
 language sql
 stable
-as $$ select ((p_at at time zone 'Asia/Tashkent') - interval '1 minute')::date $$;
-
--- Starts a new day for an aquarium if needed: every fish goes back to the starting size (food = 0).
--- Runs on the first call after 00:01, so no scheduled job is needed. The feed log keeps the history.
-create or replace function public._fishtank_roll(p_tank text)
-returns void
-language plpgsql
-security definer
-set search_path = public, extensions
-as $$
-declare v_today date := _fishtank_day(); v_day date;
-begin
-  select food_day into v_day from fishtank_tanks where id = p_tank;
-  if v_day is not distinct from v_today then return; end if;
-  if v_day is not null then -- (null: first run after the upgrade; keep today's sizes)
-    update fishtank_students set food = 0 where tank = p_tank and food <> 0;
-  end if;
-  update fishtank_tanks set food_day = v_today where id = p_tank;
-  delete from fishtank_feed_log where tank = p_tank and day < v_today - 30;
-end $$;
+as $$ select (p_at at time zone 'Asia/Tashkent')::date $$;
 
 -- ---------- PIN check (internal) ----------
 
@@ -159,10 +139,9 @@ begin
   if o_tank is null then
     insert into fishtank_pin_failures (ip) values (v_ip);
     o_err := 'wrong_pin';
-  else
-    perform _fishtank_roll(o_tank);
   end if;
 end $$;
+drop function if exists public._fishtank_roll(text); -- the automatic daily reset was removed; sizes reset by hand
 
 -- Sets an aquarium's PIN, creating the aquarium if it is new. Two aquariums can't share a PIN.
 create or replace function public.fishtank_set_pin(p_new text, p_tank text default 'main')
@@ -271,6 +250,7 @@ begin
   if v_food is not null and p_log then
     insert into fishtank_feed_log (student_id, tank, day, feeds) values (p_id, v_tank, _fishtank_day(), greatest(0, v_delta))
     on conflict (student_id, day) do update set feeds = greatest(0, fishtank_feed_log.feeds + v_delta);
+    delete from fishtank_feed_log where tank = v_tank and day < _fishtank_day() - 30;
   end if;
   return jsonb_build_object('ok', true, 'food', v_food);
 end $$;
@@ -442,7 +422,6 @@ revoke all on function public.fishtank_save_student(text, jsonb) from public;
 revoke all on function public.fishtank_delete_student(text, text) from public;
 revoke all on function public.fishtank_add_food(text, text, int, boolean) from public;
 revoke all on function public._fishtank_day(timestamptz) from public, anon, authenticated;
-revoke all on function public._fishtank_roll(text) from public, anon, authenticated;
 revoke all on function public.fishtank_reset_food(text) from public;
 revoke all on function public.fishtank_delete_all_students(text) from public;
 revoke all on function public.fishtank_save_decor(text, jsonb) from public;
@@ -466,6 +445,23 @@ grant execute on function public.fishtank_save_config(text, text, int) to anon, 
 grant execute on function public.fishtank_save_names(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_look(text, text) to anon, authenticated;
 grant execute on function public.fishtank_save_fish_settings(text, real, real, real) to anon, authenticated;
+
+-- One-time steps, remembered here so re-running this file doesn't repeat them.
+create table if not exists public.fishtank_meta (key text primary key, done_at timestamptz not null default now());
+alter table public.fishtank_meta enable row level security;
+revoke all on public.fishtank_meta from anon, authenticated;
+
+-- The feed log started with the leaderboard update, so feeds given earlier that day were missing from it.
+-- Count each fish's current feeds as today's feedings, once.
+do $$
+begin
+  if not exists (select 1 from public.fishtank_meta where key = 'feed_log_backfill') then
+    insert into public.fishtank_feed_log (student_id, tank, day, feeds)
+    select id, tank, public._fishtank_day(), food from public.fishtank_students where food > 0
+    on conflict (student_id, day) do update set feeds = greatest(public.fishtank_feed_log.feeds, excluded.feeds);
+    insert into public.fishtank_meta (key) values ('feed_log_backfill');
+  end if;
+end $$;
 
 -- Make the API see new or changed functions right away.
 notify pgrst, 'reload schema';

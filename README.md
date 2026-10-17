@@ -4,8 +4,8 @@ A classroom aquarium for 2nd graders. Every student has a fish. The teacher feed
 and it grows with every feed: each feed adds 1/max-size of its starting size, so at the max size it is twice as big.
 
 - **Feeding:** tap a fish in the tank, press **+1** on a student's row, or press **Feed everyone**.
-- **New day:** every day at 00:01 Tashkent time all fish go back to the starting size (with Supabase the database does
-  this on the first visit after 00:01; an open screen picks it up within ~15 s).
+- **Reset sizes (↺, top bar):** puts every fish back to the starting size, after a confirmation. The leaderboard keeps
+  the feedings. (Lock is in Settings.)
 - **Leaderboard tab** (desktop and phone): feedings over the last 7 days, or for any one of those days. Places 1-3 get
   gold, silver and bronze crowns (ties share a place). In the tank and the student list, the 3 biggest fish right now
   wear the crowns.
@@ -16,7 +16,7 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
 - **Settings (⚙, desktop and phone):** for the open aquarium only: the smallest and biggest fish size, how many feeds
   it takes to reach the biggest size, swim speed (with a reset to the defaults), export of the fish list as a CSV file
   for Excel (with or without feeds), import from such a file (only a `name` column is needed, so a class list typed in
-  Excel works), **Reset sizes** (all feeds back to 0) and **Delete all fish** (this aquarium only). Both ask first.
+  Excel works), **Delete all fish** (this aquarium only, asks first) and **Lock**.
 - **Full screen:** the button in the tank's top-right corner shows just the tank (Esc also exits). In full screen,
   double-click a decoration to move, resize, flip, layer or remove it; tap the water when done.
 - **Settings:** Uzbek / English (Uzbek by default), Sunny Reef / Night Glow look, names always or on hover. There are no sounds.

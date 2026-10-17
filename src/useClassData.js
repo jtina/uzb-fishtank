@@ -10,24 +10,16 @@ const writeSession = v => { try { if (v) sessionStorage.setItem(SESSION_KEY, v);
 // Remote mode keeps "pin|tank" for this tab; the PIN entered decides which aquarium (tank) is open.
 const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); return m ? { pin: m[1], tank: m[2] } : null; };
 
-// Local-only mode: at the first look after 00:01 Tashkent time every fish goes back to the starting size.
-// (With Supabase the database does this, and the app just reloads.)
-function rollLocal(d) {
-  const today = dayKey();
-  if (d.foodDay === today) return d;
-  const keep = addDays(today, -30);
-  return {
-    ...d,
-    foodDay: today,
-    students: d.foodDay ? d.students.map(s => (s.food ? { ...s, food: 0 } : s)) : d.students,
-    history: (d.history || []).filter(h => h.d >= keep),
-  };
+// Local-only mode keeps 30 days of feedings for the leaderboard (the database does the same).
+function pruneHistory(d) {
+  const keep = addDays(dayKey(), -30);
+  return { ...d, history: (d.history || []).filter(h => h.d >= keep) };
 }
 
 // The cached copy may belong to another aquarium (e.g. the test one); don't flash it while loading.
 function initialData(sess) {
   const d = loadSaved();
-  if (!remoteEnabled) return rollLocal(d);
+  if (!remoteEnabled) return pruneHistory(d);
   if (!sess || d.tank === sess.tank) return d;
   return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
 }
@@ -86,7 +78,6 @@ export function useClassData({ onRemoteFeeds } = {}) {
     maxSize: snap.maxSize ?? DEFAULT_MAX_SIZE,
     speed: snap.speed ?? DEFAULT_SPEED,
     history: snap.history || [],
-    foodDay: snap.today || d.foodDay,
     boardReady: !!snap.today, // false until supabase/fishtank.sql with the leaderboard has been run
   }));
 
@@ -131,20 +122,6 @@ export function useClassData({ onRemoteFeeds } = {}) {
     timers.current.set(key, setTimeout(() => { timers.current.delete(key); write(fn); }, ms));
   };
   const cancel = key => { clearTimeout(timers.current.get(key)); timers.current.delete(key); };
-
-  // A new day starts at 00:01 Tashkent time: reload (the server resets the sizes) or reset locally.
-  useEffect(() => {
-    if (!unlocked) return;
-    let asked = null; // ask the server once per new day, even if this device's clock is a little off
-    const iv = setInterval(() => {
-      const today = dayKey();
-      if (dataRef.current.foodDay === today || asked === today) return;
-      asked = today;
-      if (remoteEnabled) refresh(); else setData(rollLocal);
-    }, 20000);
-    return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unlocked]);
 
   // Pull changes from other devices: on a ping, every 15 s, and when the tab comes back into view.
   useEffect(() => {
