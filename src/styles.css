@@ -159,3 +159,21 @@ button{font-family:inherit}
 .btn-outline:disabled{opacity:.45;cursor:default}
 .check-row{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600;color:var(--ink)}
 .check-row input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* ---------- Leaderboard & crowns ---------- */
+.fish-body img.fish-crown{left:53px;top:-12px;width:30px;height:auto;transform:rotate(14deg);object-fit:contain}
+.name-crown{width:22px;height:auto;margin-right:6px;vertical-align:-3px}
+.board{display:flex;flex-direction:column;gap:12px;min-height:0;flex:1}
+.board-days{display:flex;flex-wrap:wrap;gap:6px}
+.day-chip{font-size:14px;font-weight:600;padding:7px 11px;border-radius:999px;border:2px solid var(--rowBorder);background:transparent;color:var(--ink);cursor:pointer}
+.day-chip.on{background:var(--btnBg);border-color:var(--btnBg);color:var(--btnInk)}
+.board-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;margin:0 -6px;padding:2px 6px}
+.board-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:var(--rowBg);border:2px solid var(--rowBorder)}
+.board-row.top{border-color:var(--rowOpen)}
+.board-place{width:40px;display:flex;justify-content:center;font-size:18px;font-weight:700;color:var(--sub)}
+.board-place img{width:38px;height:auto}
+.row-swatch.small{width:26px;height:26px}
+.board-name{flex:1;min-width:0;font-size:18px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-feeds{font-size:19px;font-weight:700}
+.board-empty{font-size:16px;color:var(--sub);font-weight:500;padding:12px 2px}
+.board-note{font-size:13px;color:var(--sub);font-weight:500;text-wrap:pretty}

@@ -70,8 +70,23 @@ export const DECOR = [
 ];
 export const decorOf = k => DECOR.find(x => x.k === k) || {};
 
+// Gold, silver and bronze crowns for places 1-3.
+export const CROWNS = { 1: asset('crown-gold.webp'), 2: asset('crown-silver.webp'), 3: asset('crown-bronze.webp') };
+
 // Fetched as soon as the app opens, so switching looks or adding fish/decorations never waits for a download.
-export const PRELOAD_IMAGES = [asset('tank-bg.webp'), asset('tank-bg-night.webp'), ...TYPES.map(t => t.img), ...DECOR.map(d => d.img)];
+export const PRELOAD_IMAGES = [asset('tank-bg.webp'), asset('tank-bg-night.webp'), ...TYPES.map(t => t.img), ...DECOR.map(d => d.img), ...Object.values(CROWNS)];
+
+// A school day runs from 00:01 to 00:01 Tashkent time (UTC+5, no daylight saving); same rule as the database.
+export const dayKey = (now = Date.now()) => new Date(now - 60000 + 5 * 3600000).toISOString().slice(0, 10);
+export const addDays = (key, n) => new Date(Date.parse(key + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+
+// Places with ties shared (two fish on 5 feeds are both 1st). Returns { id: place } for everyone with a score > 0.
+export function placesOf(scores) {
+  const list = Object.entries(scores).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  const out = {};
+  list.forEach(([id, n], i) => { out[id] = i > 0 && list[i - 1][1] === n ? out[list[i - 1][0]] : i + 1; });
+  return out;
+}
 
 export const DEFAULT_MAX_FEED = 50;
 export function maxFeedOf(raw) {

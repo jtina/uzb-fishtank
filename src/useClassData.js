@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_MAX_SIZE, DEFAULT_MIN_SIZE, DEFAULT_SPEED, SESSION_KEY, fishSettingsOf, maxFeedOf, pinMatches } from './constants.js';
+import { DEFAULT_MAX_SIZE, DEFAULT_MIN_SIZE, DEFAULT_SPEED, SESSION_KEY, addDays, dayKey, fishSettingsOf, maxFeedOf, pinMatches } from './constants.js';
 import { DEFAULT_TITLES } from './i18n.js';
 import { loadSaved, save } from './storage.js';
 import { api, remoteEnabled, watchChanges } from './remote.js';
@@ -10,11 +10,33 @@ const writeSession = v => { try { if (v) sessionStorage.setItem(SESSION_KEY, v);
 // Remote mode keeps "pin|tank" for this tab; the PIN entered decides which aquarium (tank) is open.
 const parseSession = v => { const m = /^(\d{4})\|([a-z0-9_-]+)$/.exec(v || ''); return m ? { pin: m[1], tank: m[2] } : null; };
 
+// Local-only mode: at the first look after 00:01 Tashkent time every fish goes back to the starting size.
+// (With Supabase the database does this, and the app just reloads.)
+function rollLocal(d) {
+  const today = dayKey();
+  if (d.foodDay === today) return d;
+  const keep = addDays(today, -30);
+  return {
+    ...d,
+    foodDay: today,
+    students: d.foodDay ? d.students.map(s => (s.food ? { ...s, food: 0 } : s)) : d.students,
+    history: (d.history || []).filter(h => h.d >= keep),
+  };
+}
+
 // The cached copy may belong to another aquarium (e.g. the test one); don't flash it while loading.
 function initialData(sess) {
   const d = loadSaved();
-  if (!remoteEnabled || !sess || d.tank === sess.tank) return d;
-  return { ...d, tank: sess.tank, students: [], decor: [], title: DEFAULT_TITLES[0], look: null, names: null, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
+  if (!remoteEnabled) return rollLocal(d);
+  if (!sess || d.tank === sess.tank) return d;
+  return { ...d, tank: sess.tank, students: [], decor: [], history: [], title: DEFAULT_TITLES[0], look: null, names: null, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
+}
+
+// Today's feedings for one student go up or down with every feed / minus ball.
+function logFeed(history, id, delta) {
+  const today = dayKey(), i = history.findIndex(h => h.d === today && h.id === id);
+  if (i < 0) return delta > 0 ? history.concat({ d: today, id, n: delta }) : history;
+  return history.map((h, j) => (j === i ? { ...h, n: Math.max(0, h.n + delta) } : h));
 }
 
 /**
@@ -63,6 +85,9 @@ export function useClassData({ onRemoteFeeds } = {}) {
     minSize: snap.minSize ?? DEFAULT_MIN_SIZE,
     maxSize: snap.maxSize ?? DEFAULT_MAX_SIZE,
     speed: snap.speed ?? DEFAULT_SPEED,
+    history: snap.history || [],
+    foodDay: snap.today || d.foodDay,
+    boardReady: !!snap.today, // false until supabase/fishtank.sql with the leaderboard has been run
   }));
 
   const lock = () => {
@@ -106,6 +131,20 @@ export function useClassData({ onRemoteFeeds } = {}) {
     timers.current.set(key, setTimeout(() => { timers.current.delete(key); write(fn); }, ms));
   };
   const cancel = key => { clearTimeout(timers.current.get(key)); timers.current.delete(key); };
+
+  // A new day starts at 00:01 Tashkent time: reload (the server resets the sizes) or reset locally.
+  useEffect(() => {
+    if (!unlocked) return;
+    let asked = null; // ask the server once per new day, even if this device's clock is a little off
+    const iv = setInterval(() => {
+      const today = dayKey();
+      if (dataRef.current.foodDay === today || asked === today) return;
+      asked = today;
+      if (remoteEnabled) refresh(); else setData(rollLocal);
+    }, 20000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlocked]);
 
   // Pull changes from other devices: on a ping, every 15 s, and when the tab comes back into view.
   useEffect(() => {
@@ -166,7 +205,7 @@ export function useClassData({ onRemoteFeeds } = {}) {
     },
     removeStudent: id => {
       cancel('student:' + id);
-      setStudents(ss => ss.filter(s => s.id !== id));
+      setData(d => ({ ...d, students: d.students.filter(s => s.id !== id), history: (d.history || []).filter(h => h.id !== id) }));
       write(p => api.deleteStudent(p, id));
     },
     // Adds many students at once (from an imported file). Feeds are set with add_food, the only way feeds change.
@@ -174,17 +213,21 @@ export function useClassData({ onRemoteFeeds } = {}) {
       setStudents(ss => ss.concat(list));
       write(async p => {
         await Promise.all(list.map(s => api.saveStudent(p, s)));
-        await Promise.all(list.filter(s => s.food > 0).map(s => api.addFood(p, s.id, s.food)));
+        await Promise.all(list.filter(s => s.food > 0).map(s => api.addFood(p, s.id, s.food, false)));
       });
     },
     // Only this aquarium's students; the server can't reach other aquariums with this PIN.
     removeAllStudents: () => {
       dataRef.current.students.forEach(s => cancel('student:' + s.id));
-      setStudents(() => []);
+      setData(d => ({ ...d, students: [], history: [] }));
       write(p => api.deleteAllStudents(p));
     },
     changeFood: (id, delta) => {
-      setStudents(ss => ss.map(s => s.id === id ? { ...s, food: Math.max(0, s.food + delta) } : s));
+      setData(d => ({
+        ...d,
+        students: d.students.map(s => (s.id === id ? { ...s, food: Math.max(0, s.food + delta) } : s)),
+        history: logFeed(d.history || [], id, delta),
+      }));
       write(p => api.addFood(p, id, delta));
     },
     resetFood: () => { setStudents(ss => ss.map(s => ({ ...s, food: 0 }))); write(p => api.resetFood(p)); },

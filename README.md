@@ -4,6 +4,11 @@ A classroom aquarium for 2nd graders. Every student has a fish. The teacher feed
 and it grows with every feed: each feed adds 1/max-size of its starting size, so at the max size it is twice as big.
 
 - **Feeding:** tap a fish in the tank, press **+1** on a student's row, or press **Feed everyone**.
+- **New day:** every day at 00:01 Tashkent time all fish go back to the starting size (with Supabase the database does
+  this on the first visit after 00:01; an open screen picks it up within ~15 s).
+- **Leaderboard tab** (desktop and phone): feedings over the last 7 days, or for any one of those days. Places 1-3 get
+  gold, silver and bronze crowns (ties share a place). In the tank and the student list, the 3 biggest fish right now
+  wear the crowns.
 - **Students:** when you add a student, their fish opens in edit view (name, fish type, color). The list is sorted by feeds.
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for

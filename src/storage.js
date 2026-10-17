@@ -5,7 +5,7 @@ export function loadSaved() {
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) { /* ignore */ }
   const base = { names: null, look: null, title: 'Our Class Aquarium', lang: 'uz', tab: 'list', maxFeed: DEFAULT_MAX_FEED, minSize: DEFAULT_MIN_SIZE, maxSize: DEFAULT_MAX_SIZE, speed: DEFAULT_SPEED };
-  if (!saved || !saved.students) return { ...base, students: [], decor: [] };
+  if (!saved || !saved.students) return { ...base, students: [], decor: [], history: [], foodDay: null };
   const keys = TYPES.map(x => x.k);
   return {
     students: saved.students.map(s => keys.includes(s.type) ? s : { ...s, type: OLD_TYPES[s.type] || 'spotty' }),
@@ -14,12 +14,14 @@ export function loadSaved() {
     look: saved.look === 'paper' ? null : (saved.look || null),
     title: saved.title || base.title,
     lang: saved.lang || 'uz',
-    tab: saved.tab === 'decor' ? 'decor' : 'list',
+    tab: ['decor', 'board'].includes(saved.tab) ? saved.tab : 'list',
     maxFeed: saved.maxFeed == null ? DEFAULT_MAX_FEED : saved.maxFeed,
     minSize: saved.minSize == null ? DEFAULT_MIN_SIZE : saved.minSize,
     maxSize: saved.maxSize == null ? DEFAULT_MAX_SIZE : saved.maxSize,
     speed: saved.speed == null ? DEFAULT_SPEED : saved.speed,
     tank: saved.tank || null,
+    history: Array.isArray(saved.history) ? saved.history : [],
+    foodDay: saved.foodDay || null,
   };
 }
 

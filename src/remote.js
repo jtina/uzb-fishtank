@@ -30,7 +30,8 @@ export const api = {
   load: pin => call('fishtank_load', { p_pin: pin }),
   saveStudent: (pin, s) => call('fishtank_save_student', { p_pin: pin, p_student: { id: s.id, name: s.name, type: s.type, color: s.color } }),
   deleteStudent: (pin, id) => call('fishtank_delete_student', { p_pin: pin, p_id: id }),
-  addFood: (pin, id, delta) => call('fishtank_add_food', { p_pin: pin, p_id: id, p_delta: delta }),
+  // log = false: change the size without counting it as a feeding today (imported feed counts).
+  addFood: (pin, id, delta, log = true) => call('fishtank_add_food', log ? { p_pin: pin, p_id: id, p_delta: delta } : { p_pin: pin, p_id: id, p_delta: delta, p_log: false }),
   resetFood: pin => call('fishtank_reset_food', { p_pin: pin }),
   deleteAllStudents: pin => call('fishtank_delete_all_students', { p_pin: pin }),
   saveDecor: (pin, d) => call('fishtank_save_decor', { p_pin: pin, p_decor: { id: d.id, kind: d.kind, x: d.x, size: d.size || 1, flip: !!d.flip } }),

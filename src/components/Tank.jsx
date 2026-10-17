@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { decorOf, fishFilter, growScale, typeOf } from '../constants.js';
+import { CROWNS, decorOf, fishFilter, growScale, typeOf } from '../constants.js';
 
 const TOP = 50;
 
@@ -312,6 +312,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         >
           <div className="fish-body">
             <img src={typeOf(s.type).img} alt="" draggable="false" style={{ filter: fishFilter(s) }} />
+            {props.crowns[s.id] <= 3 && <img className="fish-crown" src={CROWNS[props.crowns[s.id]]} alt="" draggable="false" />}
           </div>
           <div className="fish-label">{s.name}</div>
         </div>

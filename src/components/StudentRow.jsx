@@ -1,6 +1,6 @@
-import { COLORS, TYPES } from '../constants.js';
+import { COLORS, CROWNS, TYPES } from '../constants.js';
 
-export default function StudentRow({ s, L, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
+export default function StudentRow({ s, L, place, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
   const col = COLORS[s.color] || COLORS[0];
 
   return (
@@ -9,7 +9,7 @@ export default function StudentRow({ s, L, open, confirming, onToggle, onFeed, o
         <div className="row-main" onClick={onToggle}>
           <div className="row-swatch" style={{ background: col.c, borderColor: col.d }} />
           <div className="row-text">
-            <div className="row-name">{s.name}</div>
+            <div className="row-name">{place <= 3 && <img className="name-crown" src={CROWNS[place]} alt={'#' + place} />}{s.name}</div>
             <div className="row-meta">
               <span>{L.types[s.type] || L.types.spotty}</span>
             </div>

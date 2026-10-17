@@ -29,6 +29,7 @@ create table if not exists public.fishtank_tanks (
   min_size real not null default 0.75,
   max_size real not null default 1.5,
   speed real not null default 1,
+  food_day date, -- the day the fish sizes (students.food) belong to; see _fishtank_roll
   updated_at timestamptz not null default now()
 );
 insert into public.fishtank_tanks (id) values ('main') on conflict (id) do nothing;
@@ -49,6 +50,7 @@ alter table public.fishtank_tanks add column if not exists look text not null de
 alter table public.fishtank_tanks add column if not exists min_size real not null default 0.75;
 alter table public.fishtank_tanks add column if not exists max_size real not null default 1.5;
 alter table public.fishtank_tanks add column if not exists speed real not null default 1;
+alter table public.fishtank_tanks add column if not exists food_day date;
 drop function if exists public._fishtank_pin_error(text);
 drop function if exists public.fishtank_set_pin(text);
 
@@ -84,11 +86,50 @@ create table if not exists public.fishtank_pin_failures (
 );
 create index if not exists fishtank_pin_failures_ip_at on public.fishtank_pin_failures (ip, at);
 
+-- Feedings per student per day, for the leaderboard (kept 30 days; the app shows the last 7).
+create table if not exists public.fishtank_feed_log (
+  student_id text not null references public.fishtank_students (id) on delete cascade,
+  tank text not null references public.fishtank_tanks (id) on delete cascade,
+  day date not null,
+  feeds int not null default 0 check (feeds >= 0),
+  primary key (student_id, day)
+);
+create index if not exists fishtank_feed_log_tank_day on public.fishtank_feed_log (tank, day);
+
 alter table public.fishtank_tanks enable row level security;
 alter table public.fishtank_students enable row level security;
 alter table public.fishtank_decor enable row level security;
 alter table public.fishtank_pin_failures enable row level security;
-revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures from anon, authenticated;
+alter table public.fishtank_feed_log enable row level security;
+revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_decor, public.fishtank_pin_failures, public.fishtank_feed_log from anon, authenticated;
+
+-- ---------- Days (Tashkent time) ----------
+
+-- A school day runs from 00:01 to 00:01 Tashkent time (UTC+5, no daylight saving).
+create or replace function public._fishtank_day(p_at timestamptz default now())
+returns date
+language sql
+stable
+as $$ select ((p_at at time zone 'Asia/Tashkent') - interval '1 minute')::date $$;
+
+-- Starts a new day for an aquarium if needed: every fish goes back to the starting size (food = 0).
+-- Runs on the first call after 00:01, so no scheduled job is needed. The feed log keeps the history.
+create or replace function public._fishtank_roll(p_tank text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_today date := _fishtank_day(); v_day date;
+begin
+  select food_day into v_day from fishtank_tanks where id = p_tank;
+  if v_day is not distinct from v_today then return; end if;
+  if v_day is not null then -- (null: first run after the upgrade; keep today's sizes)
+    update fishtank_students set food = 0 where tank = p_tank and food <> 0;
+  end if;
+  update fishtank_tanks set food_day = v_today where id = p_tank;
+  delete from fishtank_feed_log where tank = p_tank and day < v_today - 30;
+end $$;
 
 -- ---------- PIN check (internal) ----------
 
@@ -118,6 +159,8 @@ begin
   if o_tank is null then
     insert into fishtank_pin_failures (ip) values (v_ip);
     o_err := 'wrong_pin';
+  else
+    perform _fishtank_roll(o_tank);
   end if;
 end $$;
 
@@ -164,6 +207,9 @@ begin
     'minSize', (select min_size from fishtank_tanks where id = v_tank),
     'maxSize', (select max_size from fishtank_tanks where id = v_tank),
     'speed', (select speed from fishtank_tanks where id = v_tank),
+    'today', _fishtank_day()::text,
+    'history', coalesce((select jsonb_agg(jsonb_build_object('d', day::text, 'id', student_id, 'n', feeds) order by day, student_id)
+                         from fishtank_feed_log where tank = v_tank and day > _fishtank_day() - 7 and feeds > 0), '[]'::jsonb),
     'students', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'type', type, 'color', color, 'food', food) order by created_at, id) from fishtank_students where tank = v_tank), '[]'::jsonb),
     'decor', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'kind', kind, 'x', x, 'size', size, 'flip', flip) order by z, id) from fishtank_decor where tank = v_tank), '[]'::jsonb)
   );
@@ -208,18 +254,24 @@ begin
 end $$;
 
 -- Adds (or with a negative delta, removes) feeds in one step, so two devices feeding at once both count.
-create or replace function public.fishtank_add_food(p_pin text, p_id text, p_delta int)
+-- p_log = false (used for imported feed counts) changes the size without counting as today's feedings.
+drop function if exists public.fishtank_add_food(text, text, int);
+create or replace function public.fishtank_add_food(p_pin text, p_id text, p_delta int, p_log boolean default true)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public, extensions
 as $$
-declare v_tank text; v_err text; v_food int;
+declare v_tank text; v_err text; v_food int; v_delta int := greatest(-1000, least(1000, p_delta));
 begin
   select o_tank, o_err into v_tank, v_err from _fishtank_auth(p_pin);
   if v_err is not null then return jsonb_build_object('error', v_err); end if;
-  update fishtank_students set food = greatest(0, food + greatest(-1000, least(1000, p_delta)))
+  update fishtank_students set food = greatest(0, food + v_delta)
   where id = p_id and tank = v_tank returning food into v_food;
+  if v_food is not null and p_log then
+    insert into fishtank_feed_log (student_id, tank, day, feeds) values (p_id, v_tank, _fishtank_day(), greatest(0, v_delta))
+    on conflict (student_id, day) do update set feeds = greatest(0, fishtank_feed_log.feeds + v_delta);
+  end if;
   return jsonb_build_object('ok', true, 'food', v_food);
 end $$;
 
@@ -388,7 +440,9 @@ revoke all on function public.fishtank_set_pin(text, text) from public, anon, au
 revoke all on function public.fishtank_load(text) from public;
 revoke all on function public.fishtank_save_student(text, jsonb) from public;
 revoke all on function public.fishtank_delete_student(text, text) from public;
-revoke all on function public.fishtank_add_food(text, text, int) from public;
+revoke all on function public.fishtank_add_food(text, text, int, boolean) from public;
+revoke all on function public._fishtank_day(timestamptz) from public, anon, authenticated;
+revoke all on function public._fishtank_roll(text) from public, anon, authenticated;
 revoke all on function public.fishtank_reset_food(text) from public;
 revoke all on function public.fishtank_delete_all_students(text) from public;
 revoke all on function public.fishtank_save_decor(text, jsonb) from public;
@@ -402,7 +456,7 @@ revoke all on function public.fishtank_save_fish_settings(text, real, real, real
 grant execute on function public.fishtank_load(text) to anon, authenticated;
 grant execute on function public.fishtank_save_student(text, jsonb) to anon, authenticated;
 grant execute on function public.fishtank_delete_student(text, text) to anon, authenticated;
-grant execute on function public.fishtank_add_food(text, text, int) to anon, authenticated;
+grant execute on function public.fishtank_add_food(text, text, int, boolean) to anon, authenticated;
 grant execute on function public.fishtank_reset_food(text) to anon, authenticated;
 grant execute on function public.fishtank_delete_all_students(text) to anon, authenticated;
 grant execute on function public.fishtank_save_decor(text, jsonb) to anon, authenticated;

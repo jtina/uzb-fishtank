@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, THEMES, TYPES, fishSettingsOf, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, fishSettingsOf, placesOf, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
 import Tank from './components/Tank.jsx';
@@ -7,6 +7,7 @@ import PinScreen from './components/PinScreen.jsx';
 import LangSwitch from './components/LangSwitch.jsx';
 import StudentRow from './components/StudentRow.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
+import Leaderboard from './components/Leaderboard.jsx';
 import FishEditor from './components/FishEditor.jsx';
 
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
@@ -41,12 +42,14 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { students, decor, lang } = data;
-  const tab = phone ? 'list' : data.tab;
+  const tab = phone ? (data.tab === 'board' ? 'board' : 'list') : data.tab; // no Decorate tab on phones
   const L = strings(lang);
   const look = data.look || 'sunny';
   const t = THEMES[look] || THEMES.sunny;
   const alwaysNames = (data.names || 'hover') === 'always';
   const fishSettings = fishSettingsOf(data);
+  // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
+  const crowns = placesOf(Object.fromEntries(students.map(s => [s.id, s.food])));
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).
@@ -154,6 +157,7 @@ export default function App() {
             selDecor={selDecor}
             alwaysNames={alwaysNames}
             fishSettings={fishSettings}
+            crowns={crowns}
             theme={t}
             L={L}
             isEmpty={students.length === 0}
@@ -171,13 +175,11 @@ export default function App() {
 
         <div className="panel">
           <div className="panel-top">
-            {!phone && (
-              <div className="chips">
-                {[['list', L.students], ['decor', L.decorate]].map(([k, label]) => (
-                  <button key={k} className={'chip tab' + (k === tab ? ' on' : '')} onClick={() => setTab(k)}>{label}</button>
-                ))}
-              </div>
-            )}
+            <div className="chips">
+              {(phone ? [['list', L.students], ['board', L.leaderboard]] : [['list', L.students], ['decor', L.decorate], ['board', L.leaderboard]]).map(([k, label]) => (
+                <button key={k} className={'chip tab' + (k === tab ? ' on' : '')} onClick={() => setTab(k)}>{label}</button>
+              ))}
+            </div>
             <div className="count">{L.fish(students.length)}</div>
           </div>
 
@@ -201,6 +203,7 @@ export default function App() {
                     key={s.id}
                     s={s}
                     L={L}
+                    place={crowns[s.id]}
                     open={open === s.id}
                     confirming={confirm === s.id}
                     onToggle={() => { setOpen(open === s.id ? null : s.id); setConfirm(null); }}
@@ -213,6 +216,8 @@ export default function App() {
               </div>
             </>
           )}
+
+          {tab === 'board' && <Leaderboard L={L} students={students} history={data.history || []} ready={!cls.remote || !!data.boardReady} />}
 
           {tab === 'decor' && (
             <>
