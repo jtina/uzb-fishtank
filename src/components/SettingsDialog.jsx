@@ -23,7 +23,7 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
     setDraft({ min: pct(fs.minSize), max: pct(fs.maxSize), feeds: String(fs.maxFeed) });
   }, [fs.minSize, fs.maxSize, fs.maxFeed]);
 
-  const [confirm, setConfirm] = useState(null); // 'delete' | { fish, hasFeeds }
+  const [confirm, setConfirm] = useState(null); // 'reset' | 'delete' | { fish, hasFeeds }
   const [keepFeeds, setKeepFeeds] = useState(true);
   const [importMsg, setImportMsg] = useState('');
   const fileRef = useRef(null);
@@ -125,6 +125,7 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
           <section className="settings-section">
             <div className="settings-head">{L.dangerSection}</div>
             <div className="settings-buttons">
+              <button className="btn-outline small" disabled={!data.students.some(s => s.food > 0)} onClick={() => setConfirm('reset')}>↺ {L.resetSizes}</button>
               <button className="btn-outline small danger" disabled={!count} onClick={() => setConfirm('delete')}>{L.deleteAll}</button>
             </div>
           </section>
@@ -136,6 +137,13 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
         </div>
       </div>
 
+      {confirm === 'reset' && (
+        <ConfirmDialog
+          L={L} title={L.resetTitle} body={L.resetBody} confirmLabel={L.resetConfirm}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => { cls.resetFood(); setConfirm(null); }}
+        />
+      )}
       {confirm === 'delete' && (
         <ConfirmDialog
           L={L} title={L.deleteAllTitle} body={L.deleteAllBody} confirmLabel={L.deleteAllConfirm(count)}

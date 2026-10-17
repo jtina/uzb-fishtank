@@ -54,7 +54,7 @@ alter table public.fishtank_tanks add column if not exists look text not null de
 alter table public.fishtank_tanks add column if not exists min_size real not null default 0.75;
 alter table public.fishtank_tanks add column if not exists max_size real not null default 1.5;
 alter table public.fishtank_tanks add column if not exists speed real not null default 1;
-alter table public.fishtank_tanks drop column if exists food_day; -- the automatic daily reset was removed
+alter table public.fishtank_tanks add column if not exists food_day date; -- the day the fish sizes belong to (see _fishtank_roll)
 alter table public.fishtank_tanks add column if not exists bg_day text not null default 'classic';
 alter table public.fishtank_tanks add column if not exists bg_night text not null default 'classic';
 alter table public.fishtank_tanks add column if not exists zone_line real not null default 0;
@@ -122,12 +122,31 @@ revoke all on public.fishtank_tanks, public.fishtank_students, public.fishtank_d
 
 -- ---------- Days (Tashkent time) ----------
 
--- The leaderboard's days are calendar days in Tashkent time (UTC+5, no daylight saving).
+-- A school day ends at 23:59 Tashkent time (UTC+5, no daylight saving): from 23:59 on, feeds count for the next
+-- day and the fish start again from the smallest size. The leaderboard uses the same days.
 create or replace function public._fishtank_day(p_at timestamptz default now())
 returns date
 language sql
 stable
-as $$ select (p_at at time zone 'Asia/Tashkent')::date $$;
+as $$ select ((p_at at time zone 'Asia/Tashkent') + interval '1 minute')::date $$;
+
+-- Starts a new day for an aquarium if needed: every fish goes back to the starting size (food = 0). Runs on the
+-- first call after 23:59, so no scheduled job is needed. The feed log keeps the history for the leaderboard.
+create or replace function public._fishtank_roll(p_tank text)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare v_today date := _fishtank_day(); v_day date;
+begin
+  select food_day into v_day from fishtank_tanks where id = p_tank;
+  if v_day is not distinct from v_today then return; end if;
+  if v_day is not null then -- (null: first run after the update; keep today's sizes)
+    update fishtank_students set food = 0 where tank = p_tank and food <> 0;
+  end if;
+  update fishtank_tanks set food_day = v_today where id = p_tank;
+end $$;
 
 -- ---------- PIN check (internal) ----------
 
@@ -157,9 +176,10 @@ begin
   if o_tank is null then
     insert into fishtank_pin_failures (ip) values (v_ip);
     o_err := 'wrong_pin';
+  else
+    perform _fishtank_roll(o_tank);
   end if;
 end $$;
-drop function if exists public._fishtank_roll(text); -- the automatic daily reset was removed; sizes reset by hand
 
 -- Sets an aquarium's PIN, creating the aquarium if it is new. Two aquariums can't share a PIN.
 create or replace function public.fishtank_set_pin(p_new text, p_tank text default 'main')
@@ -575,6 +595,7 @@ revoke all on function public.fishtank_save_student(text, jsonb) from public;
 revoke all on function public.fishtank_delete_student(text, text) from public;
 revoke all on function public.fishtank_add_food(text, text, int, boolean) from public;
 revoke all on function public._fishtank_day(timestamptz) from public, anon, authenticated;
+revoke all on function public._fishtank_roll(text) from public, anon, authenticated;
 revoke all on function public.fishtank_reset_food(text) from public;
 revoke all on function public.fishtank_delete_all_students(text) from public;
 revoke all on function public.fishtank_save_decor(text, jsonb) from public;

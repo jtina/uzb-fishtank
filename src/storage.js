@@ -26,6 +26,7 @@ export function loadSaved() {
     zoneLine: saved.zoneLine || 0,
     zoneTop: saved.zoneTop || 5,
     zoneDive: !!saved.zoneDive,
+    foodDay: saved.foodDay || null,
   };
 }
 

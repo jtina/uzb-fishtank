@@ -22,7 +22,8 @@ button{font-family:inherit}
 .chip.on{background:var(--btnBg);color:var(--btnInk)}
 .pill{font-size:16px;font-weight:600;padding:12px 16px;min-height:48px;border-radius:999px;border:2px solid var(--rowBorder);background:var(--panelBg);color:var(--ink);cursor:pointer;white-space:nowrap}
 .feed-all{font-size:20px;font-weight:600;padding:12px 26px;min-height:52px;border-radius:999px;border:none;background:var(--accent);color:var(--accentInk);cursor:pointer;box-shadow:0 4px 0 var(--accentShadow)}
-.feed-all:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.2)}
+.feed-all:disabled{opacity:.45;cursor:default;box-shadow:none}
+.feed-all:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.2)}
 .btn-outline{font-size:17px;font-weight:600;padding:12px 20px;min-height:48px;border-radius:14px;border:2px solid var(--rowBorder);background:transparent;color:var(--ink);cursor:pointer}
 .btn-outline.small{font-size:15px;padding:8px 14px;min-height:44px;border-radius:12px}
 .btn-outline.danger{color:#D13B40}

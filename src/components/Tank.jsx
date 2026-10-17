@@ -138,7 +138,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         const tilt = f.tilt;
         el.style.transform = `translate(${f.x}px,${f.y + bob}px)`;
         el.style.zIndex = focus ? '40' : String(Math.round(f.sc * 10));
-        el.style.pointerEvents = decorating ? 'none' : 'auto';
+        el.style.pointerEvents = decorating || live.current.feedingLocked ? 'none' : 'auto'; // no feeding while a past day is shown
         el.style.opacity = decorating ? '0.5' : '1';
         const body = el.firstChild, lab = el.lastChild;
         body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * f.sc},${f.sc})`;

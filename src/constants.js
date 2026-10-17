@@ -85,8 +85,9 @@ export const PRELOAD_IMAGES = [
   ...TYPES.map(t => t.img), ...DECOR.map(d => d.img), ...Object.values(CROWNS),
 ];
 
-// The leaderboard's days are calendar days in Tashkent time (UTC+5, no daylight saving); same rule as the database.
-export const dayKey = (now = Date.now()) => new Date(now + 5 * 3600000).toISOString().slice(0, 10);
+// A school day ends at 23:59 Tashkent time (UTC+5, no daylight saving): from then on it is the next day, for the
+// leaderboard and for the daily reset of fish sizes. Same rule as the database.
+export const dayKey = (now = Date.now()) => new Date(now + 60000 + 5 * 3600000).toISOString().slice(0, 10);
 export const addDays = (key, n) => new Date(Date.parse(key + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 
 // Places with ties shared (two fish on 5 feeds are both 1st). Returns { id: place } for everyone with a score > 0.
