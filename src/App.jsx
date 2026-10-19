@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { COLORS, DECOR, LOOKS, THEMES, TYPES, dayKey, fishSettingsOf, placesOf, themeVars, uid } from './constants.js';
+import { COLORS, DECOR, LOOKS, THEMES, TYPES, crownsOf, dayKey, fishSettingsOf, placesOf, themeVars, uid } from './constants.js';
 import { DEFAULT_TITLES, strings } from './i18n.js';
 import { useClassData } from './useClassData.js';
 import Tank from './components/Tank.jsx';
@@ -70,19 +70,20 @@ export default function App() {
   const alwaysNames = (data.names || 'hover') === 'always';
   const fishSettings = fishSettingsOf(data);
   // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
-  const crowns = placesOf(Object.fromEntries(students.map(s => [s.id, s.food])));
+  const crowns = crownsOf(Object.fromEntries(students.map(s => [s.id, s.food])));
   const showPhoneTank = phone && !!data.phoneTank; // per-device switch in Settings
   const viewing = tab === 'board' && (!phone || showPhoneTank) && viewScores;
   viewingRef.current = !!viewing;
   const tankStudents = viewing ? students.map(s => ({ ...s, food: viewScores[s.id] || 0 })) : students;
-  const tankCrowns = viewing ? placesOf(Object.fromEntries(tankStudents.map(s => [s.id, s.food]))) : crowns;
+  const tankScores = Object.fromEntries(tankStudents.map(s => [s.id, s.food]));
+  const tankCrowns = crownsOf(tankScores);
   const viewLabel = !viewing ? null : boardSel === 'week' ? L.week : (() => {
     const dt = new Date(boardSel + 'T00:00:00Z');
     return `${L.weekdays[dt.getUTCDay()]}, ${L.months[dt.getUTCMonth()]} ${dt.getUTCDate()}`;
   })();
   // Top fish zone: never more than zoneTop fish above the line. A group of tied fish only goes up if the whole group
   // fits, so ties can leave fewer (e.g. places 1,2,3,4,5,5,5 with 5 allowed -> only the top 4).
-  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: topFish(tankCrowns, data.zoneTop || 5) };
+  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: topFish(placesOf(tankScores), data.zoneTop || 5) };
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).

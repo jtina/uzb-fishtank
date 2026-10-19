@@ -1,6 +1,6 @@
 import { COLORS, CROWNS, TYPES } from '../constants.js';
 
-export default function StudentRow({ s, L, place, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
+export default function StudentRow({ s, L, place /* crown: 1 gold, 2 silver, 3 bronze */, open, confirming, onToggle, onFeed, onMinus, onChange, onRemove }) {
   const col = COLORS[s.color] || COLORS[0];
 
   return (

@@ -90,6 +90,22 @@ export const PRELOAD_IMAGES = [
 export const dayKey = (now = Date.now()) => new Date(now + 60000 + 5 * 3600000).toISOString().slice(0, 10);
 export const addDays = (key, n) => new Date(Date.parse(key + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 
+// Crowns: never more than 3. Tied fish get the medal for the last spot their group fills (two tied at the top fill
+// spots 1-2, so both get silver; three tied get bronze), and a group that would go past spot 3 gets none.
+// Returns { id: 1 | 2 | 3 } (gold, silver, bronze).
+export function crownsOf(scores) {
+  const groups = {};
+  Object.entries(placesOf(scores)).forEach(([id, p]) => { (groups[p] = groups[p] || []).push(id); });
+  const out = {};
+  let filled = 0;
+  for (const p of Object.keys(groups).map(Number).sort((a, b) => a - b)) {
+    filled += groups[p].length;
+    if (filled > 3) break;
+    groups[p].forEach(id => { out[id] = filled; });
+  }
+  return out;
+}
+
 // Places with ties shared (two fish on 5 feeds are both 1st). Returns { id: place } for everyone with a score > 0.
 export function placesOf(scores) {
   const list = Object.entries(scores).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);

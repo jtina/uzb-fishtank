@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { COLORS, CROWNS, addDays, dayKey, placesOf } from '../constants.js';
+import { COLORS, CROWNS, addDays, crownsOf, dayKey, placesOf } from '../constants.js';
 
 const DAYS_BACK = 366; // the date bar covers the year of feedings the database keeps
 
@@ -60,7 +60,7 @@ export default function Leaderboard({ L, students, history, dayFeeds, ready, sel
   const scores = {};
   students.forEach(s => { scores[s.id] = 0; });
   (entries || []).forEach(h => { if (h.id in scores) scores[h.id] += h.n; });
-  const places = placesOf(scores);
+  const places = placesOf(scores), crowns = crownsOf(scores);
   const scoresKey = sel === today || loading ? null : JSON.stringify(scores);
   useEffect(() => { onScores(scoresKey && JSON.parse(scoresKey)); }, [scoresKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onScores(null), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -108,11 +108,11 @@ export default function Leaderboard({ L, students, history, dayFeeds, ready, sel
       ) : (
         <div className="board-list">
           {rows.map(s => {
-            const col = COLORS[s.color] || COLORS[0], place = places[s.id];
+            const col = COLORS[s.color] || COLORS[0], place = places[s.id], crown = crowns[s.id];
             return (
-              <div key={s.id} className={'board-row' + (place <= 3 ? ' top' : '')}>
+              <div key={s.id} className={'board-row' + (crown ? ' top' : '')}>
                 <div className="board-place">
-                  {place <= 3 ? <img src={CROWNS[place]} alt={'#' + place} /> : <span>{place}</span>}
+                  {crown ? <img src={CROWNS[crown]} alt={'#' + place} /> : <span>{place}</span>}
                 </div>
                 <div className="row-swatch small" style={{ background: col.c, borderColor: col.d }} />
                 <div className="board-name">{s.name}</div>
