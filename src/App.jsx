@@ -151,6 +151,7 @@ export default function App() {
   const tankEl = (
     <Tank
       ref={tankApi}
+      fit={phone} // phone: draw everything smaller to suit the small tank
       students={tankStudents}
       viewLabel={viewLabel}
       feedingLocked={!!viewing}

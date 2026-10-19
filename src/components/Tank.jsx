@@ -22,7 +22,18 @@ const Tank = forwardRef(function Tank(props, ref) {
   const decorEls = useRef(new Map());
   const sim = useRef({}), pellets = useRef([]), hovered = useRef(null);
   const live = useRef(props);
-  live.current = { ...props, decorating };
+  // fit (phone): everything in the tank is drawn smaller to suit its size. k = 1 on the big screen.
+  const [k, setK] = useState(1);
+  useEffect(() => {
+    const t = tankRef.current;
+    if (!props.fit || !t) { setK(1); return; }
+    const measure = () => setK(Math.max(0.4, Math.min(1, t.clientHeight / 620)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(t);
+    return () => ro.disconnect();
+  }, [props.fit]);
+  live.current = { ...props, decorating, k };
 
   const popup = (x, y, text, size) => {
     const fx = fxRef.current; if (!fx) return;
@@ -57,7 +68,7 @@ const Tank = forwardRef(function Tank(props, ref) {
     fx.appendChild(el);
     const W = tank.clientWidth;
     const x = Math.max(20, Math.min(W - 20, f.x + (Math.random() - 0.5) * 60));
-    pellets.current.push({ x, y: -10, floor: tank.clientHeight - 64, fishId: id, el, vy: 0.8 + Math.random() * 0.4, remote });
+    pellets.current.push({ x, y: -10, floor: tank.clientHeight - 64 * live.current.k, fishId: id, el, vy: 0.8 + Math.random() * 0.4, remote });
   };
 
   const removePellet = p => { p.el.remove(); pellets.current = pellets.current.filter(q => q !== p); };
@@ -66,7 +77,7 @@ const Tank = forwardRef(function Tank(props, ref) {
     removePellet(p);
     f.show = performance.now() + 2500;
     if (!p.remote) live.current.onAte(s.id);
-    popup(f.x, f.y - 30 * f.sc - 30, '+1', 22);
+    popup(f.x, f.y - 30 * f.sc * live.current.k - 30, '+1', 22);
     for (let i = 0; i < 3; i++) setTimeout(() => bubble(f.x + 20 * f.dir, f.y - 8, 6 + i * 2), i * 120);
   };
 
@@ -80,7 +91,8 @@ const Tank = forwardRef(function Tank(props, ref) {
       const dt = Math.min(3, (now - last) / 16.67); last = now;
       const tank = tankRef.current; if (!tank) return;
       const { students, focusId, decorating, alwaysNames, fishSettings, zone } = live.current;
-      const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90;
+      const k = live.current.k, top = TOP * k;
+      const W = tank.clientWidth, H = tank.clientHeight, bottom = H - 90 * k;
       // Top fish zone: only zone.tops swim above lineY; everyone else stays below it. The top fish stay above it too,
       // unless zone.dive lets them swim anywhere.
       const lineY = zone && zone.line > 0 ? zone.line * H : null;
@@ -93,8 +105,8 @@ const Tank = forwardRef(function Tank(props, ref) {
         const unseen = pellets.current.filter(q => q.fishId === s.id && q.remote).length;
         const base = growScale(Math.max(0, s.food - unseen), fishSettings), target = focus ? Math.max(2, base * 1.4) : base;
         const zoned = lineY != null && !focus, isTop = zoned && !!zone.tops[s.id];
-        const lo = zoned && !isTop ? Math.min(bottom - 20, lineY + 18) : TOP;  // swim area for this fish
-        const hi = zoned && isTop && !zone.dive ? Math.max(TOP + 20, lineY - 18) : bottom;
+        const lo = zoned && !isTop ? Math.min(bottom - 20, lineY + 18) : top;  // swim area for this fish
+        const hi = zoned && isTop && !zone.dive ? Math.max(top + 20, lineY - 18) : bottom;
         let f = sim.current[s.id];
         if (!f) {
           f = sim.current[s.id] = { x: 40 + Math.random() * (W - 80), y: lo + Math.random() * Math.max(1, hi - lo), vx: 0, vy: 0, sp: 0.5 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, sc: target, show: 0, tilt: 0 };
@@ -111,11 +123,11 @@ const Tank = forwardRef(function Tank(props, ref) {
         // Chasing food: the farther away it is (e.g. from the bottom of the tank), the faster the fish swims.
         if (p) sp = 2.6 + Math.min(3.4, d / 90);
         if (!p && !focus && (d < 24 || Math.random() < 0.003 * dt)) retarget(f, W, lo, hi);
-        const k = (p ? 0.09 : 0.04) * dt; // reach chasing speed quickly
-        f.vx += (dx / d * sp - f.vx) * k;
-        f.vy += (dy / d * sp * (p ? 1 : 0.7) - f.vy) * k; // normal swimming is flatter; chasing goes straight at the food
+        const accel = (p ? 0.09 : 0.04) * dt; // reach chasing speed quickly
+        f.vx += (dx / d * sp - f.vx) * accel;
+        f.vy += (dy / d * sp * (p ? 1 : 0.7) - f.vy) * accel; // normal swimming is flatter; chasing goes straight at the food
         f.x = Math.max(30, Math.min(W - 30, f.x + f.vx * dt));
-        f.y = Math.max(TOP, Math.min(bottom, f.y + f.vy * dt));
+        f.y = Math.max(top, Math.min(bottom, f.y + f.vy * dt));
         // Once a fish is on its side of the line it stays there (top fish may still dive for their own food).
         if (zoned && !isTop) { if (f.y >= lo) f.below = true; if (f.below && f.y < lo) { f.y = lo; f.vy = Math.max(0, f.vy); } }
         if (zoned && isTop && !zone.dive) { if (f.y <= hi) f.above = true; if (f.above && f.y > hi) { f.y = hi; f.vy = Math.min(0, f.vy); } }
@@ -129,7 +141,7 @@ const Tank = forwardRef(function Tank(props, ref) {
         } else if (p && Math.abs(dx) > 6) f.dir = dx > 0 ? 1 : -1; // face the food
         else if (Math.abs(f.vx) > 0.12) f.dir = f.vx > 0 ? 1 : -1;
         f.sc += (target - f.sc) * 0.05 * dt;
-        if (p && Math.hypot(p.x - f.x, p.y - f.y) < 14 + 22 * f.sc) eat(s, p, f);
+        if (p && Math.hypot(p.x - f.x, p.y - f.y) < (14 + 22 * f.sc) * k) eat(s, p, f);
         const bob = frozen ? 0 : Math.sin(now / 450 + f.ph) * 3;
         // Nose up or down: toward the food (up to 45°) while chasing it, otherwise a little with the swim direction.
         // Positive angles turn the nose down; flipped (left-facing) fish need the opposite rotation.
@@ -141,8 +153,9 @@ const Tank = forwardRef(function Tank(props, ref) {
         el.style.pointerEvents = decorating || live.current.feedingLocked ? 'none' : 'auto'; // no feeding while a past day is shown
         el.style.opacity = decorating ? '0.5' : '1';
         const body = el.firstChild, lab = el.lastChild;
-        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * f.sc},${f.sc})`;
-        lab.style.transform = `translate(-50%,${-(30 * f.sc + 34)}px)`;
+        const vs = f.sc * k; // drawn size
+        body.style.transform = `translate(-50%,-50%) rotate(${tilt}deg) scale(${f.dir * vs},${vs})`;
+        lab.style.transform = `translate(-50%,${-(30 * vs + 34)}px)`;
         // The name shows from the moment food is dropped for a fish until a moment after it eats.
         lab.style.opacity = (focus || alwaysNames || p || hovered.current === s.id || now < f.show) ? '1' : '0';
       }
@@ -228,7 +241,7 @@ const Tank = forwardRef(function Tank(props, ref) {
     const s0 = item.size || 1, x0 = e.clientX, y0 = e.clientY, base = decorOf(item.kind).h || 80;
     const move = ev => {
       const delta = ((ev.clientX - x0) * side + (y0 - ev.clientY)) / 2;
-      const size = Math.max(0.4, Math.min(2.5, s0 + delta / base));
+      const size = Math.max(0.4, Math.min(2.5, s0 + delta / (base * k)));
       props.setDecor(ds => ds.map(d => d.id === item.id ? { ...d, size } : d));
     };
     const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); props.onDecorCommit(item.id); };
@@ -237,7 +250,7 @@ const Tank = forwardRef(function Tank(props, ref) {
     props.onSelectDecor(item.id);
   };
 
-  const decorHeight = d => Math.round((decorOf(d.kind).h || 80) * (d.size || 1));
+  const decorHeight = d => Math.round((decorOf(d.kind).h || 80) * (d.size || 1) * k);
   const selItem = decorating ? decor.find(d => d.id === selDecor) : null;
 
   // New position in the drawing order for Front (dir 1) / Back (dir -1): just past the nearest decoration
