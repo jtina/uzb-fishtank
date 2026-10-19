@@ -226,3 +226,8 @@ button{font-family:inherit}
 
 .view-badge{position:absolute;left:14px;top:28px;z-index:62;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:999px;background:rgba(255,255,255,.92);color:#2B3A4A;font-size:15px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .view-badge button{font-family:inherit;font-size:14px;font-weight:700;padding:6px 12px;border-radius:999px;border:none;background:var(--accent);color:var(--accentInk);cursor:pointer}
+
+/* Phone with the tank switched on: a shorter tank above the list */
+.phone-tank{display:flex;flex-direction:column}
+.app.phone .tank{height:52vh;min-height:260px;border-width:4px;border-radius:18px}
+.app.phone .fullscreen-btn span,.app.phone .view-badge span{display:none}

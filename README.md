@@ -88,3 +88,4 @@ If `SUPABASE_URL` / `SUPABASE_ANON_KEY` are not set, everything is saved only in
 the `TEACHER_PIN` environment variable at build time (a repository secret for GitHub Pages), and only its hash is put in
 the site. Locally: `TEACHER_PIN=5678 npm run dev`; without it, the local PIN is `0000`.
 To run locally against Supabase, put `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in a `.env.local` file.
+  Settings on the phone has a **Show the fish tank on this phone** switch (saved on that phone only).

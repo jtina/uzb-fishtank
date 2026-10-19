@@ -11,7 +11,7 @@ const pct = v => String(Math.round(v * 100));
  * Per-aquarium settings: fish size range, feeds to reach the biggest size, swim speed, export / import of the
  * fish list, delete all fish, and Lock. Everything except export applies to the open aquarium only.
  */
-export default function SettingsDialog({ L, cls, onClose, onLock }) {
+export default function SettingsDialog({ L, cls, phone, onClose, onLock }) {
   const { data } = cls;
   const fs = fishSettingsOf(data);
   // Text boxes keep what is being typed; valid numbers go to the aquarium straight away, and leaving a box
@@ -76,6 +76,16 @@ export default function SettingsDialog({ L, cls, onClose, onLock }) {
       <div className="overlay" onClick={onClose}>
         <div className="dialog settings" role="dialog" aria-modal="true" aria-label={L.settings} onClick={e => e.stopPropagation()}>
           <div className="dialog-title">{L.settings}</div>
+
+          {phone && (
+            <section className="settings-section">
+              <div className="settings-head">{L.phoneSection}</div>
+              <label className="switch-row">
+                <span>{L.phoneTank}</span>
+                <input type="checkbox" role="switch" className="switch" checked={!!data.phoneTank} onChange={e => cls.setPrefs({ phoneTank: e.target.checked })} />
+              </label>
+            </section>
+          )}
 
           <section className="settings-section">
             <div className="settings-head">{L.sizeSection}</div>

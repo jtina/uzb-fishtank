@@ -71,7 +71,8 @@ export default function App() {
   const fishSettings = fishSettingsOf(data);
   // Crowns for the 3 biggest fish right now (today's feeds; ties share a place).
   const crowns = placesOf(Object.fromEntries(students.map(s => [s.id, s.food])));
-  const viewing = tab === 'board' && !phone && viewScores;
+  const showPhoneTank = phone && !!data.phoneTank; // per-device switch in Settings
+  const viewing = tab === 'board' && (!phone || showPhoneTank) && viewScores;
   viewingRef.current = !!viewing;
   const tankStudents = viewing ? students.map(s => ({ ...s, food: viewScores[s.id] || 0 })) : students;
   const tankCrowns = viewing ? placesOf(Object.fromEntries(tankStudents.map(s => [s.id, s.food]))) : crowns;
@@ -147,6 +148,37 @@ export default function App() {
   const title = DEFAULT_TITLES.includes(data.title) ? L.title : data.title;
   const rows = students.slice().sort((a, b) => b.food - a.food || a.name.localeCompare(b.name));
 
+  const tankEl = (
+    <Tank
+      ref={tankApi}
+      students={tankStudents}
+      viewLabel={viewLabel}
+      feedingLocked={!!viewing}
+      onBackToToday={() => setBoardSel(dayKey())}
+      decor={decor}
+      decorating={tab === 'decor'}
+      focusId={focusId}
+      editing={editing}
+      selDecor={selDecor}
+      alwaysNames={alwaysNames}
+      fishSettings={fishSettings}
+      crowns={tankCrowns}
+      zone={zone}
+      theme={t}
+      L={L}
+      isEmpty={students.length === 0}
+      onAte={id => cls.changeFood(id, 1)}
+      onCloseEdit={closeEdit}
+      onTankClick={() => { if (open) closeEdit(); if (tab === 'decor') setSelDecor(null); }}
+      setDecor={cls.moveDecorLive}
+      onDecorCommit={cls.commitDecor}
+      onSelectDecor={setSelDecor}
+      onMoveLayer={moveLayer}
+      onFlipDecor={flipDecor}
+      onRemoveDecor={removeDecor}
+    />
+  );
+
   return (
     <div style={themeVars(ui)}>
       {!unlocked && <div style={themeVars(THEMES.sunny)}><PinScreen L={L} lang={lang} onLang={setLang} onUnlock={cls.unlock} /></div>}
@@ -178,34 +210,8 @@ export default function App() {
             </div>
           </div>
           {cls.syncError && <div className="sync-error" role="status">{cls.syncError === 'needs_update' ? L.needsUpdate : L.syncError}</div>}
-          {!phone && <Tank
-            ref={tankApi}
-            students={tankStudents}
-            viewLabel={viewLabel}
-            feedingLocked={!!viewing}
-            onBackToToday={() => setBoardSel(dayKey())}
-            decor={decor}
-            decorating={tab === 'decor'}
-            focusId={focusId}
-            editing={editing}
-            selDecor={selDecor}
-            alwaysNames={alwaysNames}
-            fishSettings={fishSettings}
-            crowns={tankCrowns}
-            zone={zone}
-            theme={t}
-            L={L}
-            isEmpty={students.length === 0}
-            onAte={id => cls.changeFood(id, 1)}
-            onCloseEdit={closeEdit}
-            onTankClick={() => { if (open) closeEdit(); if (tab === 'decor') setSelDecor(null); }}
-            setDecor={cls.moveDecorLive}
-            onDecorCommit={cls.commitDecor}
-            onSelectDecor={setSelDecor}
-            onMoveLayer={moveLayer}
-            onFlipDecor={flipDecor}
-            onRemoveDecor={removeDecor}
-          />}
+          {/* Phones show the tank only if switched on in Settings (this phone only); it keeps the aquarium's own look. */}
+          {(!phone || showPhoneTank) && (phone ? <div className="phone-tank" style={themeVars(t)}>{tankEl}</div> : tankEl)}
         </div>
 
         <div className="panel">
@@ -277,6 +283,7 @@ export default function App() {
         {adding && <FishEditor L={L} onCancel={() => setAdding(false)} onSave={addFromPopup} />}
         {settingsOpen && (
           <SettingsDialog
+            phone={phone}
             L={L}
             cls={cls}
             onClose={() => { cls.commitFishSettings(); setSettingsOpen(false); }}
