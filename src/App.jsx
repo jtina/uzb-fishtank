@@ -11,6 +11,20 @@ import Leaderboard from './components/Leaderboard.jsx';
 import FishEditor from './components/FishEditor.jsx';
 import { useTankBackground } from './useTankBackground.js';
 
+// Ids of the fish allowed above the zone line: whole tie groups only, at most max fish.
+function topFish(places, max) {
+  const byPlace = {};
+  Object.entries(places).forEach(([id, p]) => { (byPlace[p] = byPlace[p] || []).push(id); });
+  const tops = {};
+  let count = 0;
+  for (const p of Object.keys(byPlace).map(Number).sort((a, b) => a - b)) {
+    if (count + byPlace[p].length > max) break;
+    byPlace[p].forEach(id => { tops[id] = true; });
+    count += byPlace[p].length;
+  }
+  return tops;
+}
+
 // Phones get a remote-control layout: the student list only, no tank and no Decorate tab.
 const PHONE = '(max-width: 640px)';
 function usePhone() {
@@ -65,8 +79,9 @@ export default function App() {
     const dt = new Date(boardSel + 'T00:00:00Z');
     return `${L.weekdays[dt.getUTCDay()]}, ${L.months[dt.getUTCMonth()]} ${dt.getUTCDate()}`;
   })();
-  // Top fish zone: the fish allowed above the line (top N by feeds; ties share a place, so it can be a few more).
-  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: Object.fromEntries(Object.entries(tankCrowns).filter(([, p]) => p <= (data.zoneTop || 5)).map(([id]) => [id, true])) };
+  // Top fish zone: never more than zoneTop fish above the line. A group of tied fish only goes up if the whole group
+  // fits, so ties can leave fewer (e.g. places 1,2,3,4,5,5,5 with 5 allowed -> only the top 4).
+  const zone = { line: data.zoneLine || 0, dive: !!data.zoneDive, tops: topFish(tankCrowns, data.zoneTop || 5) };
 
   // The look belongs to the aquarium on the class screen. The PIN screen and the phone remote always use the
   // Sunny Reef colors (the phone's look switch still changes the class screen).

@@ -14,7 +14,8 @@ and it grows with every feed: each feed adds 1/max-size of its starting size, so
   only; feeding is off until you go back to today with the label in the tank).
 - **Top fish zone (Settings):** switch it on and drag a line on the picture of the tank. Only the top 5 fish (or the
   number you set) swim above it and stay there (their food stops at the line), unless you switch on "top fish can also
-  swim below the line"; the rest stay below, and their food drops quickly to the line so they don't wait long.
+  swim below the line"; the rest stay below, and their food drops quickly to the line so they don't wait long. Never more than that number go above the line: a group of tied fish only goes up if the
+  whole group fits (15, 13, 10, 6, 2, 2, 2 with 5 allowed puts only the top 4 above).
 - **Students:** when you add a student, their fish opens in edit view (name, fish type, color). The list is sorted by feeds.
   Tap the tank to leave edit view.
 - **Decorate tab:** add decorations, drag them to move, drag a corner handle to resize, and tap one for
